@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#0B57D0" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="icon" href="assets/janken-appicon-1024.png" />
+<title>JANKeN PoN</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="stage">
+  <div class="app" id="app">
+    <div class="ambient" aria-hidden="true">
+      <i class="ambient__glow ambient__glow--cyan"></i>
+      <i class="ambient__glow ambient__glow--violet"></i>
+      <i class="ambient__glow ambient__glow--gold"></i>
+      <i class="ambient__grid"></i>
+      <i class="ambient__ring"></i>
+    </div>
+
+    <!-- ============================= HOME ============================= -->
+    <section class="screen screen--home is-active" id="screen-home">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand__hands" aria-hidden="true">
+            <img src="assets/icons/270a.svg" alt="" /><img src="assets/icons/270c.svg" alt="" /><img src="assets/icons/270b.svg" alt="" />
+          </div>
+          <div class="brand__text">
+            <span class="brand__name">JANKeN PoN</span>
+            <span class="brand__sub">WORLD CHANT ARENA</span>
+          </div>
+        </div>
+        <div class="topbar__actions">
+          <button class="icon-btn" id="btn-help" type="button" data-i18n-aria="howto.title" aria-label="あそびかた">
+            <img src="assets/icons/1f4d6.svg" alt="" />
+          </button>
+          <button class="icon-btn" id="btn-sound" type="button" aria-label="サウンド切り替え">
+            <img id="sound-icon" src="assets/icons/1f50a.svg" alt="" />
+          </button>
+        </div>
+      </header>
+
+      <div class="hero">
+        <div class="hero__badge">5 / 3 ROUNDS</div>
+        <h1 class="logo">
+          <span class="logo__line1">JANKeN</span>
+          <span class="logo__line2">PoN<i class="logo__dot"></i></span>
+        </h1>
+        <p class="logo__tag" data-i18n="app.tagline">世界の掛け声で、勝負。</p>
+        <div class="hero__hands" aria-hidden="true">
+          <span class="hero__hand hero__hand--rock"><img src="assets/icons/270a.svg" alt="" /></span>
+          <span class="hero__hand hero__hand--scissors"><img src="assets/icons/270c.svg" alt="" /></span>
+          <span class="hero__hand hero__hand--paper"><img src="assets/icons/270b.svg" alt="" /></span>
+        </div>
+      </div>
+
+      <div class="card player-card" id="player-card">
+        <div class="player-card__flag" id="home-flag">
+          <img src="assets/flags/1f1ef-1f1f5.svg" alt="" />
+        </div>
+        <div class="player-card__body">
+          <input id="nickname" class="nickname" type="text" maxlength="12" placeholder="ニックネーム" autocomplete="off" spellcheck="false" aria-label="ニックネーム" />
+          <button class="country-btn" id="btn-country" type="button">
+            <span id="home-country-name">日本</span>
+            <span class="country-btn__cta">国をかえる</span>
+          </button>
+        </div>
+        <div class="player-card__score">
+          <div class="points"><b id="home-points">0</b><span>pt</span></div>
+          <div class="rank-chip" id="home-rank">世界 50位</div>
+        </div>
+      </div>
+
+      <div class="practice" id="practice-strip" role="button" tabindex="0" aria-label="戦績パネルをひらく">
+        <div class="practice__head">
+          <span><span data-i18n="home.practice">練習データ</span> <small data-i18n="home.localOnly">この端末のみ</small></span>
+          <button class="practice__reset" id="btn-practice-reset" type="button" data-i18n="home.reset">リセット</button>
+        </div>
+        <div class="practice__body">
+          <span id="practice-stats">まだ対戦していません</span>
+          <b id="practice-points">0 pt</b>
+        </div>
+        <span class="practice__more">戦績をみる ›</span>
+      </div>
+
+      <section class="block">
+        <div class="block__head">
+          <h2 data-i18n="home.modes">対戦モード</h2>
+          <span class="block__note">✊3 / ✌️2 / ✋5 pt</span>
+        </div>
+
+        <div class="mode-cards" id="mode-cards" role="group">
+          <button class="mode-card is-active" type="button" data-mode="practice">
+            <span class="mode-card__icon"><img src="assets/icons/1f3ae.svg" alt="" /></span>
+            <span class="mode-card__body">
+              <b data-i18n="mode.practice">CPU練習</b>
+              <em data-i18n="mode.practiceNote">ひとりで・時間自由</em>
+            </span>
+          </button>
+          <button class="mode-card" type="button" data-mode="online">
+            <span class="mode-card__icon"><img src="assets/icons/1f30f.svg" alt="" /></span>
+            <span class="mode-card__body">
+              <b data-i18n="mode.online">通信対戦</b>
+              <em id="online-mode-note" data-i18n="mode.onlineNote">国内・1手5秒固定</em>
+            </span>
+          </button>
+          <button class="mode-card" type="button" data-mode="party">
+            <span class="mode-card__icon"><img src="assets/icons/1f451.svg" alt="" /></span>
+            <span class="mode-card__body">
+              <b data-i18n="mode.party">パーティー</b>
+              <em data-i18n="mode.partyNote">2〜4人・5回戦</em>
+              <span class="mode-card__pro" data-pro-only>PRO</span>
+            </span>
+          </button>
+        </div>
+
+        <div class="mode-panel" id="panel-practice">
+          <div class="panel-row">
+            <span class="panel-label" id="level-note">回戦数 / CPUの強さ</span>
+            <div class="seg" id="rounds-seg" role="group" aria-label="回戦数"></div>
+          </div>
+          <div class="level-row" id="level-row"></div>
+        </div>
+
+        <div class="mode-panel" id="panel-online" hidden>
+          <div class="scope-seg" id="scope-seg" role="group"></div>
+          <div class="panel-row panel-row--split">
+            <span class="panel-label" data-i18n="online.turn">1手5秒固定</span>
+            <div class="seg seg--mini" id="online-rounds-seg" role="group"></div>
+          </div>
+          <p class="panel-note" id="online-panel-note">国内ランキングは無料。世界は PRO。</p>
+        </div>
+
+        <div class="mode-panel" id="panel-party" hidden>
+          <p class="panel-note" data-i18n="party.rule">2〜4人・5回戦・全員がいっせいに手を出す</p>
+          <p class="panel-note panel-note--warn" data-i18n="party.unranked">この結果はランキングに加算されません</p>
+        </div>
+
+        <button class="cta" id="btn-play" type="button">
+          <span class="cta__label" id="play-label">5回戦をはじめる</span>
+          <span class="cta__sub" id="play-sub">NORMAL ・ 7.0秒 ・ CLASSIC</span>
+        </button>
+
+        <button class="ghost ghost--wide" id="btn-online-open" type="button" hidden>
+          <span data-i18n="online.quick">クイックマッチ</span>
+        </button>
+      </section>
+
+      <div class="division-strip" id="division-strip">
+        <div class="division-strip__head">
+          <span>部門ランキング</span>
+          <span class="division-strip__goal" id="division-goal">両方1位で2冠</span>
+        </div>
+        <div class="division-strip__row">
+          <button type="button" class="ds-item" data-division="5">
+            <span class="ds-item__label">5回戦</span>
+            <b id="strip-rank-5">75位</b>
+            <em id="strip-pts-5">0 pt</em>
+          </button>
+          <button type="button" class="ds-item" data-division="3">
+            <span class="ds-item__label">3回戦</span>
+            <b id="strip-rank-3">75位</b>
+            <em id="strip-pts-3">0 pt</em>
+          </button>
+        </div>
+      </div>
+
+      <div class="world-ticker" aria-hidden="true"><div class="world-ticker__track" id="ticker-track"></div></div>
+
+      <nav class="tabbar" aria-label="メニュー">
+        <button type="button" data-nav="ranking">
+          <img src="assets/icons/1f3c6.svg" alt="" /><span data-i18n="nav.ranking">ランキング</span>
+        </button>
+        <button type="button" data-nav="stats">
+          <img src="assets/icons/1f4ca.svg" alt="" /><span data-i18n="nav.stats">戦績</span>
+        </button>
+        <button type="button" data-nav="pro" class="tabbar__pro">
+          <img src="assets/icons/1f451.svg" alt="" /><span data-i18n="nav.pro">PRO</span>
+        </button>
+        <button type="button" data-nav="settings">
+          <img src="assets/icons/2699.svg" alt="" /><span data-i18n="nav.settings">設定</span>
+        </button>
+      </nav>
+    </section>
+
+    <!-- ============================= PLAY (1v1) ============================= -->
+    <section class="screen screen--play" id="screen-play">
+      <header class="play-head">
+        <button class="icon-btn icon-btn--ghost" id="btn-quit" type="button" aria-label="タイトルへ戻る">✕</button>
+        <button class="icon-btn icon-btn--ghost" id="btn-bell" type="button" aria-label="スタンプ通知">
+          <img id="bell-icon" src="assets/icons/1f514.svg" alt="" />
+        </button>
+        <div class="pips" id="pips" aria-label="ラウンド進行"></div>
+        <button class="icon-btn icon-btn--ghost" id="btn-stamp" type="button" aria-label="スタンプ">
+          <img src="assets/icons/1f4ac.svg" alt="" />
+        </button>
+        <div class="play-head__score">
+          <b id="play-points">0</b><span>pt</span>
+          <em id="play-cpu">CPU 0</em>
+        </div>
+      </header>
+
+      <div class="legend" id="legend" aria-label="手ごとのポイント"></div>
+
+      <div class="opponent" id="opponent">
+        <div class="opponent__flag" id="opp-flag"><img src="assets/flags/1f1e7-1f1f7.svg" alt="" /></div>
+        <div class="opponent__body">
+          <div class="opponent__top">
+            <span class="opponent__name" id="opp-name">ブラジル</span>
+            <span class="opponent__level" id="opp-level">CPU NORMAL</span>
+          </div>
+          <div class="opponent__chant" id="opp-chant">
+            <span class="chant__w">Jo</span><span class="chant__w">ken</span><span class="chant__w">pô!</span>
+          </div>
+        </div>
+        <button class="opponent__info" id="btn-opp-info" type="button" aria-label="相手の傾向">
+          <img src="assets/icons/1f4ca.svg" alt="" />
+        </button>
+      </div>
+
+      <div class="arena">
+        <div class="pod pod--cpu" id="cpu-pod">
+          <div class="pod__badge" id="cpu-flag"><img src="assets/flags/1f1e7-1f1f7.svg" alt="" /></div>
+          <div class="pod__inner">
+            <div class="pod__face pod__face--back"><span class="pod__q">?</span></div>
+            <div class="pod__face pod__face--front"><img id="cpu-hand-img" src="assets/icons/270a.svg" alt="" /></div>
+          </div>
+          <span class="pod__map" id="cpu-map"></span>
+          <div class="pod__label" id="cpu-label">CPU</div>
+        </div>
+
+        <div class="arena__mid">
+          <span class="vs">VS</span>
+          <div class="arena__round" id="arena-round">ROUND 1</div>
+        </div>
+
+        <div class="pod pod--you is-revealed" id="you-pod">
+          <div class="pod__badge" id="you-flag"><img src="assets/flags/1f1ef-1f1f5.svg" alt="" /></div>
+          <div class="pod__inner">
+            <div class="pod__face pod__face--back"><span class="pod__q">?</span></div>
+            <div class="pod__face pod__face--front"><img id="you-hand-img" src="assets/icons/270a.svg" alt="" /></div>
+          </div>
+          <span class="pod__map" id="you-map"></span>
+          <div class="pod__label">YOU</div>
+        </div>
+
+        <div class="stamp-bubble stamp-bubble--cpu" id="cpu-stamp" aria-live="polite"></div>
+        <div class="stamp-bubble stamp-bubble--you" id="you-stamp" aria-live="polite"></div>
+        <div class="floatpts" id="floatpts" aria-hidden="true">+5</div>
+      </div>
+
+      <div class="play-chant" id="play-chant">
+        <div class="play-chant__text" id="big-chant"></div>
+        <div class="verdict" id="verdict" aria-live="polite">
+          <span class="verdict__label" id="verdict-label">WIN</span>
+          <span class="verdict__pts" id="verdict-pts">+5</span>
+        </div>
+      </div>
+
+      <div class="timer" id="timer">
+        <div class="timer__row">
+          <span class="timer__hint" id="timer-hint" data-i18n="play.choose">手をえらんでください</span>
+          <span class="timer__num"><b id="timer-num">7.0</b><small>s</small></span>
+        </div>
+        <div class="timer__bar"><i class="timer__fill" id="timer-fill"></i></div>
+      </div>
+
+      <div class="handbar" id="handbar"></div>
+
+      <div class="stamp-pop" id="stamp-pop" hidden>
+        <div class="stamp-pop__head">
+          <span data-i18n="stamp.title">スタンプ</span>
+          <span class="stamp-pop__cool" id="stamp-cool">定型文のみ・連打は4秒あき</span>
+        </div>
+        <div class="stamp-grid" id="stamp-grid"></div>
+      </div>
+    </section>
+
+    <!-- ============================ PARTY (2-4) ============================ -->
+    <section class="screen screen--party" id="screen-party">
+      <header class="play-head">
+        <button class="icon-btn icon-btn--ghost" id="btn-party-quit" type="button" aria-label="退出">✕</button>
+        <div class="party-head__round" id="party-round-label">ROUND 1 / 5</div>
+        <div class="pips" id="party-pips" aria-label="ラウンド進行"></div>
+        <div class="play-head__score">
+          <b id="party-my-points">0</b><span>pt</span>
+          <em data-i18n="party.unrankedShort">ランキング対象外</em>
+        </div>
+      </header>
+
+      <div class="party-grid" id="party-grid"></div>
+
+      <div class="play-chant play-chant--party" id="party-chant">
+        <div class="play-chant__text" id="party-big-chant"></div>
+        <div class="verdict" id="party-verdict" aria-live="polite">
+          <span class="verdict__label" id="party-verdict-label">+5</span>
+          <span class="verdict__pts" id="party-verdict-pts"></span>
+        </div>
+      </div>
+
+      <div class="timer" id="party-timer">
+        <div class="timer__row">
+          <span class="timer__hint" id="party-timer-hint">手をえらんでください</span>
+          <span class="timer__num"><b id="party-timer-num">5.0</b><small>s</small></span>
+        </div>
+        <div class="timer__bar"><i class="timer__fill" id="party-timer-fill"></i></div>
+      </div>
+
+      <div class="handbar" id="party-handbar"></div>
+    </section>
+
+    <!-- ============================ RESULT (1v1) ============================ -->
+    <section class="screen screen--result" id="screen-result">
+      <div class="result-head">
+        <div class="result-head__verdict" id="result-verdict">WIN</div>
+        <div class="result-head__score">
+          <b id="result-points">0</b><span class="unit">pt</span>
+        </div>
+        <div class="result-head__sub" id="result-sub">YOU 0 ・ CPU 0</div>
+      </div>
+
+      <div class="card rank-card" id="rank-card">
+        <div class="rank-card__head">
+          <span><span id="rank-scope-label">世界ランキング</span> <em class="division-chip" id="rank-division">5回戦部門</em></span>
+          <span class="rank-card__badge">LIVE</span>
+        </div>
+        <div class="rank-card__flow">
+          <span class="rank-card__from" id="rank-before">50位</span>
+          <span class="rank-card__arrow">→</span>
+          <span class="rank-card__to" id="rank-after">47位</span>
+          <span class="rank-card__delta" id="rank-gain">▲3</span>
+        </div>
+        <div class="rank-card__foot">
+          <span>累計 <b id="result-total">0</b> pt</span>
+          <span id="rank-total">/ 50人中</span>
+        </div>
+      </div>
+
+      <div class="card practice practice--result no-shrink" id="practice-card">
+        <div class="practice__head">
+          <span><span data-i18n="home.practice">練習データ</span> <small data-i18n="home.localOnly">この端末のみ</small></span>
+          <span class="practice__delta" id="practice-delta">+0pt</span>
+        </div>
+        <div class="practice__body">
+          <span id="practice-result-stats">—</span>
+          <b id="practice-result-points">0 pt</b>
+        </div>
+      </div>
+
+      <p class="result-note" id="result-note" hidden>練習の結果はランキングに加算されません。</p>
+
+      <div class="card handstats no-shrink" id="result-handstats">
+        <div class="handstats__head">
+          <span>このマッチの手の率</span>
+          <span class="handstats__legend" id="handstats-legend"></span>
+        </div>
+        <div class="handstats__rows" id="handstats-rows"></div>
+      </div>
+
+      <div class="rounds" id="result-rounds"></div>
+      <p class="result-hint" id="result-hint"></p>
+
+      <div class="result-actions">
+        <button class="cta" id="btn-again" type="button">
+          <span class="cta__label" data-i18n="result.again">もう一度あそぶ</span>
+          <span class="cta__sub" id="again-sub">同じ条件でもう1マッチ</span>
+        </button>
+        <div class="result-actions__row">
+          <button class="ghost" id="btn-result-ranking" type="button"><span data-i18n="result.ranking">ランキング</span></button>
+          <button class="ghost" id="btn-home" type="button"><span data-i18n="result.home">タイトルへ</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ RESULT (PARTY) ============================ -->
+    <section class="screen screen--result" id="screen-party-result">
+      <div class="result-head">
+        <div class="result-head__verdict" id="party-result-verdict">DRAW</div>
+        <div class="result-head__score">
+          <b id="party-result-points">0</b><span class="unit">pt</span>
+        </div>
+        <div class="result-head__sub" id="party-result-sub">PARTY ・ 5 ROUNDS</div>
+      </div>
+
+      <div class="card party-standings no-shrink">
+        <div class="party-standings__head">
+          <span data-i18n="party.players">参加者</span>
+          <span class="party-standings__badge" data-i18n="party.unranked">ランキング対象外</span>
+        </div>
+        <div id="party-standings"></div>
+      </div>
+
+      <div class="rounds" id="party-result-rounds"></div>
+      <p class="result-note" data-i18n="party.unranked">この結果はランキングに加算されません</p>
+
+      <div class="result-actions">
+        <button class="cta" id="btn-party-again" type="button">
+          <span class="cta__label" data-i18n="result.again">もう一度あそぶ</span>
+          <span class="cta__sub">同じ合言葉の部屋へ</span>
+        </button>
+        <div class="result-actions__row">
+          <button class="ghost" id="btn-party-home" type="button"><span data-i18n="result.home">タイトルへ</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ SHEETS ============================ -->
+    <div class="overlay" id="overlay" hidden>
+      <div class="sheet-host" id="sheet-host">
+        <section class="sheet" id="sheet-country" data-sheet="country" hidden>
+          <header class="sheet__head">
+            <div>
+              <h3>国をえらぶ</h3>
+              <p>あなたの旗と、世界ランキングでの表示。</p>
+            </div>
+            <button class="icon-btn icon-btn--ghost" type="button" data-close aria-label="閉じる">✕</button>
+          </header>
+          <div class="country-grid" id="country-grid"></div>
+        </section>
+
+        <section class="sheet" id="sheet-ranking" data-sheet="ranking" hidden>
+          <header class="sheet__head">
+            <div>
+              <h3 id="ranking-title">国内ランキング</h3>
+              <p id="ranking-caption">部門・指標・範囲を切り替えて比べられます。</p>
+            </div>
+            <button class="icon-btn icon-btn--ghost" type="button" data-close aria-label="閉じる">✕</button>
+          </header>
+
+          <div class="div-tabs" id="div-tabs" role="tablist" aria-label="ランキング部門">
+            <button type="button" data-div="5" class="is-active" role="tab">5回戦部門</button>
+            <button type="button" data-div="3" role="tab">3回戦部門</button>
+          </div>
+
+          <div class="axis-row">
+            <div class="axis-tabs" id="metric-tabs" role="tablist" aria-label="指標"></div>
+            <div class="scope-tabs" id="scope-tabs" role="group" aria-label="範囲"></div>
+          </div>
+
+          <div class="titles" id="titles-line"></div>
+          <div class="rank-me" id="rank-me"></div>
+          <div class="rank-list" id="rank-list"></div>
+          <div class="rank-locked" id="rank-locked" hidden>
+            <img src="assets/icons/1f512.svg" alt="" />
+            <b data-i18n="online.proWorld">世界の対戦は PRO</b>
+            <span>世界ランキングへの参加は JANKeN PoN PRO（買い切り）で解放されます。国内ランキングは無料です。</span>
+            <button class="cta cta--small" type="button" id="btn-rank-pro"><span>PRO をみる</span></button>
+          </div>
+          <p class="sheet__note">5回戦と3回戦は別部門で集計します。両方で1位になると「2冠」です。行をタップすると、そのプレイヤーの手の率が見られます。相手の手の率の詳細表示は PRO の機能です。</p>
+        </section>
+
+        <section class="sheet" id="sheet-player" data-sheet="player" hidden>
+          <header class="sheet__head">
+            <div>
+              <h3 id="player-name">プレイヤー</h3>
+              <p id="player-sub">—</p>
+            </div>
+            <button class="icon-btn icon-btn--ghost" type="button" data-close aria-label="閉じる">✕</button>
+          </header>
+          <div id="player-body"></div>
+        </section>
+
+        <section class="sheet" id="sheet-stats" data-sheet="stats" hidden>
+          <header class="sheet__head">
+            <div>
+              <h3>戦績</h3>
+              <p>あなたの手の率と、部門ごとの記録。</p>
+            </div>
+            <button class="icon-btn icon-btn--ghost" type="button" data-close aria-label="閉じる">✕</button>
+          </header>
+          <div class="stat-block">
+            <div class="stat-block__head">
+              <span>あなたの手の率</span>
+              <span id="stats-hands-count">0 手</span>
+            </div>
+            <div class="handrows" id="stats-hands"></div>
+          </div>
+          <div class="stat-grid" id="stat-grid"></div>
+          <p class="sheet__note">手の率は、この端末で出した手の回数から計算しています。パーティーの手も含みます（ランキングには加算しません）。</p>
+        </section>
+
+        <section class="sheet sheet--pro" id="sheet-pro" data-sheet="pro" hidden>
+          <header class="sheet__head">
+            <div>
+              <h3 class="pro-title">JANKeN PoN <em>PRO</em></h3>
+              <p data-i18n="pro.sub">強さは売らない。世界観と手応えを売る。</p>
+            </div>
+            <button class="icon-btn icon-btn--ghost" type="button" data-close aria-label="閉じる">✕</button>
+          </header>
+
+          <div class="pro-price">
+            <span class="pro-price__amount" id="pro-price-amount">¥480</span>
+            <span class="pro-price__unit" data-i18n="pro.price">買い切り</span>
+            <span class="pro-price__badge" data-i18n="pro.noPoints">ポイントは増えません</span>
+          </div>
+
+          <ul class="pro-list">
+            <li>
+              <img src="assets/icons/1f30f.svg" alt="" />
+              <div><b data-i18n="pro.item1">世界通信対戦・世界ランキング</b><span>世界中のプレイヤーと、1手5秒で対戦。</span></div>
+            </li>
+            <li>
+              <img src="assets/icons/1f451.svg" alt="" />
+              <div><b data-i18n="pro.item2">最大4人パーティーバトル</b><span>2〜4人・5回戦。結果はランキングに加算されません。</span></div>
+            </li>
+            <li>
+              <img src="assets/icons/1f9e0.svg" alt="" />
+              <div><b data-i18n="pro.item3">最強CPU（MASTER・2秒）</b><span>2手先を読む心理戦。</span></div>
+            </li>
+            <li>
+              <img src="assets/icons/1f4ca.svg" alt="" />
+              <div><b data-i18n="pro.item4">相手の手の率（✊✌️✋%）</b><span>対戦相手の傾向を、数字で見られる。</span></div>
+            </li>
+            <li>
+              <img src="assets/icons/2728.svg" alt="" />
+              <div><b data-i18n="pro.item5">ゴールド称号フレーム</b><span>プロフィールとランキングの行が金色に。</span></div>
+            </li>
+          </ul>
+
+          <div class="pro-actions">
+            <button class="cta cta--small" id="btn-pro-buy" type="button"><span data-i18n="pro.buy">PROを購入</span></button>
+            <button class="ghost" id="btn-pro-restore" type="button"><span data-i18n="pro.restore">購入を復元</span></button>
+          </div>
+          <p class="pro-owned" id="pro-owned" hidden data-i18n="pro.owned">PRO 購入済み</p>
+          <p class="pro-diag" id="pro-diag" hidden></p>
+
+          <button class="pro-switch" id="btn-pro-toggle" type="button" hidden>
+            <span class="pro-switch__label" data-i18n="pro.preview">PROを体験する</span>
+            <span class="pro-switch__state" id="pro-switch-state">OFF</span>
+          </button>
+          <p class="sheet__note" id="pro-preview-note" hidden data-i18n="pro.previewNote">プレビュー版のため課金は発生しません。</p>
+        </section>
+
+        <section class="sheet" id="sheet-online" data-sheet="online" hidden>
+          <header class="sheet__head">
+            <div>
+              <h3 data-i18n="online.title">通信対戦</h3>
+              <p id="online-caption">国内ランキングは無料。世界は PRO。</p>
+            </div>
+            <button class="icon-btn icon-btn--ghost" type="button" data-close aria-label="閉じる">✕</button>
+          </header>
+
+          <div class="scope-seg scope-seg--sheet" id="online-scope-seg" role="group"></div>
+          <div class="seg seg--mini" id="online-sheet-rounds" role="group"></div>
+
+          <div class="online-status" id="online-status">
+            <span class="online-status__pulse" aria-hidden="true"></span>
+            <b id="online-status-title">対戦相手を待っています</b>
+            <span id="online-status-sub">0 ・ 残り30秒</span>
+          </div>
+
+          <button class="cta cta--small" id="btn-quick" type="button"><span data-i18n="online.quick">クイックマッチ</span></button>
+
+          <div class="room-row">
+            <input id="online-code" class="code-input" type="text" maxlength="8" inputmode="latin" autocapitalize="characters" autocomplete="off" spellcheck="false" data-i18n-ph="online.codePh" placeholder="4〜8文字" aria-label="合言葉" />
+            <button class="ghost" id="btn-room-join" type="button"><span data-i18n="online.join">入室</span></button>
+          </div>
+
+          <div class="online-actions">
+            <button class="ghost" id="btn-online-retry" type="button"><span data-i18n="online.retry">もう一度さがす</span></button>
+            <button class="ghost" id="btn-online-cpu" type="button"><span data-i18n="online.toCpu">CPU練習へ</span></button>
+          </div>
+          <p class="sheet__note">1手5秒固定（国際基準）。マッチングは30秒で打ち切り、見つからないときは安全に終了します。自由入力のチャットはありません（定型スタンプのみ・4秒あき）。</p>
+        </section>
+
+        <section class="sheet" id="sheet-party" data-sheet="party" hidden>
+          <header class="sheet__head">
+            <div>
+              <h3 data-i18n="party.title">パーティーバトル</h3>
+              <p data-i18n="party.rule">2〜4人・5回戦・全員がいっせいに手を出す</p>
+            </div>
+            <button class="icon-btn icon-btn--ghost" type="button" data-close aria-label="閉じる">✕</button>
+          </header>
+
+          <div class="party-code">
+            <span data-i18n="online.code">合言葉</span>
+            <b id="party-code-value">—</b>
+            <button class="ghost ghost--mini" id="btn-party-copy" type="button">コピー</button>
+          </div>
+
+          <div class="party-lobby-head">
+            <span data-i18n="party.players">参加者</span>
+            <span id="party-count">0 / 4</span>
+          </div>
+          <div class="party-lobby" id="party-lobby"></div>
+
+          <div class="room-row">
+            <input id="party-code-input" class="code-input" type="text" maxlength="8" inputmode="latin" autocapitalize="characters" autocomplete="off" spellcheck="false" data-i18n-ph="online.codePh" placeholder="4〜8文字" aria-label="合言葉" />
+            <button class="ghost" id="btn-party-join" type="button"><span data-i18n="party.join">合言葉で入る</span></button>
+          </div>
+          <button class="ghost ghost--wide" id="btn-party-create" type="button"><span data-i18n="party.create">部屋をつくる</span></button>
+          <button class="cta cta--small" id="btn-party-start" type="button" hidden><span data-i18n="party.start">はじめる</span></button>
+          <p class="sheet__note" data-i18n="party.unranked">この結果はランキングに加算されません</p>
+        </section>
+
+        <section class="sheet" id="sheet-howto" data-sheet="howto" hidden>
+          <header class="sheet__head">
+            <div>
+              <h3 data-i18n="howto.title">あそびかた</h3>
+              <p>5回戦と3回戦、2つの部門で世界と勝負。</p>
+            </div>
+            <button class="icon-btn icon-btn--ghost" type="button" data-close aria-label="閉じる">✕</button>
+          </header>
+          <ol class="howto" id="howto-list"></ol>
+          <div class="howto-legend" id="howto-legend"></div>
+          <p class="sheet__note" id="legal-note"></p>
+        </section>
+
+        <section class="sheet" id="sheet-settings" data-sheet="settings" hidden>
+          <header class="sheet__head">
+            <div>
+              <h3 data-i18n="settings.title">設定</h3>
+              <p>音・通知・言語・データの管理。</p>
+            </div>
+            <button class="icon-btn icon-btn--ghost" type="button" data-close aria-label="閉じる">✕</button>
+          </header>
+          <div class="set-list">
+            <button class="set-row" type="button" id="set-language">
+              <span data-i18n="settings.language">言語</span><span class="set-row__value" id="set-language-state">日本語</span>
+            </button>
+            <button class="set-row" type="button" id="set-howto">
+              <span data-i18n="settings.howto">あそびかた</span><span class="set-row__value">›</span>
+            </button>
+            <button class="set-row" type="button" id="set-sound">
+              <span data-i18n="settings.sound">サウンド</span><span class="set-row__value" id="set-sound-state">ON</span>
+            </button>
+            <button class="set-row" type="button" id="set-stamps">
+              <span data-i18n="settings.stamps">スタンプ通知</span><span class="set-row__value" id="set-stamps-state">ON</span>
+            </button>
+            <button class="set-row" type="button" id="set-practice">
+              <span data-i18n="settings.reset">練習データをリセット</span><span class="set-row__value" id="set-practice-count">0</span>
+            </button>
+            <button class="set-row" type="button" id="set-privacy">
+              <span data-i18n="settings.privacy">プライバシーポリシー</span><span class="set-row__value">›</span>
+            </button>
+          </div>
+          <p class="sheet__note">JANKeN PoN 1.0.0 (Build 1) ・ T-maks Games ・ 自由入力のチャットはありません。</p>
+        </section>
+
+        <section class="sheet" id="sheet-language" data-sheet="language" hidden>
+          <header class="sheet__head">
+            <div>
+              <h3 data-i18n="settings.language">言語</h3>
+              <p>12言語。表示だけが変わり、記録はそのまま。</p>
+            </div>
+            <button class="icon-btn icon-btn--ghost" type="button" data-close aria-label="閉じる">✕</button>
+          </header>
+          <div class="lang-grid" id="lang-grid"></div>
+          <p class="sheet__note" data-i18n="legal.note">プライバシーポリシーの全文は日本語と英語で用意しています。</p>
+        </section>
+
+        <section class="sheet sheet--legal" id="sheet-privacy" data-sheet="privacy" hidden>
+          <header class="sheet__head">
+            <div>
+              <h3 data-i18n="legal.title">プライバシーポリシー</h3>
+              <p id="legal-updated" data-i18n="legal.updated">最終更新日: 2026年11月21日</p>
+            </div>
+            <button class="icon-btn icon-btn--ghost" type="button" data-close aria-label="閉じる">✕</button>
+          </header>
+          <div class="legal" id="legal-body"></div>
+        </section>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+</div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

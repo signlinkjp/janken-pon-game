@@ -1,0 +1,25 @@
+{
+  "name": "janken-pon",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "JANKeN PoN — 世界の掛け声で5/3回戦じゃんけん（Capacitor iOS / Build 1）",
+  "license": "UNLICENSED",
+  "scripts": {
+    "test": "node --test test/core.test.js test/online.test.js test/build1.test.js",
+    "serve": "node tools/serve.mjs",
+    "shots": "node tools/shots.mjs",
+    "ios:sync": "cap sync ios",
+    "www": "node tools/make-www.mjs"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@capacitor/core": "8.6.2",
+    "@capacitor/ios": "8.6.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.2"
+  }
+}

@@ -1,0 +1,11 @@
+{
+	"appId": "jp.signlink.JankenPon",
+	"appName": "JANKeN PoN",
+	"webDir": "www",
+	"ios": {
+		"contentInset": "never",
+		"backgroundColor": "#0B57D0",
+		"scrollEnabled": false
+	},
+	"packageClassList": []
+}
