@@ -13,6 +13,7 @@ npm test        # ルール・通信・Build 1 仕様のテスト（134件）
 npm run serve   # http://127.0.0.1:4173 で確認（file:// では ES Modules が動きません）
 npm run shots   # Chromium で操作テスト + スクショ（downloads/janken-b1-*.png）
 npm run www     # 配布用 www/ を作る
+npm run e2e     # 2ブラウザ × 実 Supabase で合言葉の部屋を5回戦（手動の通し確認）
 npm run ios:sync # cap sync ios（www → ios/App/App/public）
 ```
 
@@ -133,6 +134,7 @@ src/main.js             UI コントローラ
 test/core.test.js       ルール・進行・ランキング・保存（62テスト）
 test/online.test.js     通信プロトコル（22テスト・フェイクWSで往復）
 test/build1.test.js     Build 1 仕様（50テスト）
+tools/online-e2e.mjs    2ブラウザ × 実 games-realtime の通し確認（手動）
 tools/serve.mjs         静的サーバー
 tools/shots.mjs         Chromium 操作テスト + スクショ
 tools/make-www.mjs      配布用 www/ の生成
@@ -140,6 +142,7 @@ capacitor.config.json   appId / appName / webDir
 ios/                    Capacitor iOS プロジェクト（Bundle ID・アイコン・StoreKit）
 docs/ios-testflight-build1.yml   TestFlight ワークフロー（1行目からコピーして貼る）
 docs/privacy.md         プライバシーポリシー全文（日英）
+docs/live-check.md      実 games-realtime での確認記録（2人対戦・3人パーティー・画面通し）
 ```
 
 ## TestFlight までの手順（トモアキさん向け）

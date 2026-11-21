@@ -928,10 +928,12 @@ async function chooseHand(hand, { timedOut = false } = {}) {
   if (app.phase !== 'chant' || token !== app.matchToken) return;
 
   if (app.matchKind === 'online') {
-    if (app.online.pendingRound && app.online.pendingRound.round === app.match.roundIndex) {
-      const event = app.online.pendingRound;
+    /* 相手の手が先に届いていれば、その場で判定へ。まだなら待つ。 */
+    const pending = app.online.pendingRound;
+    if (pending && pending.round === app.match.roundIndex) {
       app.online.pendingRound = null;
-      await applyOnlineRound(event);
+      app.roundCpu = pending.hands.opp;
+      await revealRound();
     } else {
       app.phase = 'waiting';
       $('#timer-hint').textContent = T('play.waiting');
@@ -1010,13 +1012,15 @@ async function revealRound() {
 
 /** 通信の相手の手が届いたときの1ラウンド（見た目は CPU 戦と同じ） */
 async function applyOnlineRound(event) {
-  if (!app.match || app.phase === 'idle') return;
+  if (!app.match || app.phase === 'idle' || app.match.finished) return;
   if (event.round !== app.match.roundIndex) return;
-  if (app.match.finished) return;
+  /* 自分の手を出して掛け声の途中なら、掛け声が終わってから使う */
   if (app.phase === 'chant') {
     app.online.pendingRound = event;
     return;
   }
+  if (app.phase !== 'waiting') return;
+  app.online.pendingRound = null;
   app.roundCpu = event.hands.opp;
   await revealRound();
 }
@@ -1141,12 +1145,13 @@ function handleOnlineEvent(event) {
       break;
     case 'round':
       if (!app.match || app.matchKind !== 'online') break;
-      if (app.phase === 'chant') app.online.pendingRound = event;
-      else if (app.phase === 'waiting') {
-        app.online.pendingRound = null;
-        app.roundCpu = event.hands.opp;
-        revealRound();
+      if (app.phase === 'thinking') {
+        /* 相手が先に決めた。自分の手を選ぶまで持っておく */
+        app.online.pendingRound = event;
+        $('#timer-hint').textContent = T('play.waiting');
+        break;
       }
+      applyOnlineRound(event);
       break;
     case 'opponent-pick':
       if (app.phase === 'waiting') $('#timer-hint').textContent = T('play.waiting');

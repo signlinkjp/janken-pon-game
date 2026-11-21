@@ -10,7 +10,8 @@
     "serve": "node tools/serve.mjs",
     "shots": "node tools/shots.mjs",
     "ios:sync": "cap sync ios",
-    "www": "node tools/make-www.mjs"
+    "www": "node tools/make-www.mjs",
+    "e2e": "node tools/online-e2e.mjs"
   },
   "engines": {
     "node": ">=22.0.0"

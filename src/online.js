@@ -801,6 +801,7 @@ export class OnlineSession {
     });
     this.started = true;
     this.leftNotified = false;
+    this.opponentSeen = false;
     this.emit({
       type: 'paired',
       mode: 'match',
@@ -813,13 +814,15 @@ export class OnlineSession {
   handleMatchPresence(members) {
     if (!this.matchName || !this.opponent) return;
     const keys = members.map((member) => member.key);
-    if (keys.length && !keys.includes(this.opponent.key) && this.leftNotified !== true) {
-      /* 相手が抜けた（自分が入る前の presence に相手がいないだけのこともある） */
-      if (this.started) {
-        this.leftNotified = true;
-        this.emit({ type: 'opponent-left' });
-      }
+    if (keys.includes(this.opponent.key)) {
+      /* 一度でも相手を見た。これ以降に消えたら「退出」として扱う */
+      this.opponentSeen = true;
+      return;
     }
+    /* 自分が先に入った直後は、相手がまだ来ていないだけ。退出とは違う */
+    if (!this.opponentSeen || !this.started || this.leftNotified) return;
+    this.leftNotified = true;
+    this.emit({ type: 'opponent-left' });
   }
 
   handleMatchBroadcast(event, payload) {
@@ -1193,6 +1196,8 @@ export class OnlineSession {
     this.partyRound = -1;
     this.partyOver = false;
     this.started = false;
+    this.opponentSeen = false;
+    this.leftNotified = false;
     this.remainingMs = 0;
     this.deadline = 0;
     this.lastStampAt = 0;
