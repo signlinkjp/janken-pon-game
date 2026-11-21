@@ -1296,3 +1296,6 @@ textarea {
 .pro-actions .cta { justify-content: center; }
 .online-status { row-gap: 2px; }
 .online-status b { line-height: 1.3; }
+
+/* ホームの CTA はブロックいっぱい（狭い画面でも指で押しやすい） */
+.block > .cta { width: 100%; }
