@@ -845,11 +845,12 @@ test('世界記録に勝敗が貯まり、勝率が出る', () => {
  * 14. ランキングの表示軸（部門 × 指標 × 範囲）
  * ================================================================ */
 
-test('指標は 総合 / 月別 / 勝率', () => {
-  assert.deepEqual(RANK_METRICS.map((m) => m.id), ['total', 'monthly', 'winrate']);
+test('指標は 総合 / 月別 / 週間 / 勝率', () => {
+  assert.deepEqual(RANK_METRICS.map((m) => m.id), ['total', 'monthly', 'weekly', 'winrate']);
   assert.deepEqual(RANK_SCOPES.map((s) => s.id), ['world', 'domestic']);
-  assert.equal(metricValue({ points: 100, monthlyPoints: 20, matches: 10, winRate: 0.5 }, 'total'), 100);
-  assert.equal(metricValue({ points: 100, monthlyPoints: 20 }, 'monthly'), 20);
+  assert.equal(metricValue({ points: 100, monthlyPoints: 20, weeklyPoints: 7, matches: 10, winRate: 0.5 }, 'total'), 100);
+  assert.equal(metricValue({ points: 100, monthlyPoints: 20, weeklyPoints: 7 }, 'monthly'), 20);
+  assert.equal(metricValue({ points: 100, monthlyPoints: 20, weeklyPoints: 7 }, 'weekly'), 7);
   assert.equal(metricValue({ matches: 10, winRate: 0.5 }, 'winrate'), 0.5);
   assert.equal(metricValue({ matches: 0, winRate: 0.9 }, 'winrate'), 0, '試合0は勝率0扱い');
 });

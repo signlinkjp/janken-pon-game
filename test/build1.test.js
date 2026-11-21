@@ -246,9 +246,9 @@ test('PRO の価格表示は12言語ぶんある（StoreKit の表示価格が�
  * 5. ランキング（部門 × 指標 × 範囲）
  * ------------------------------------------------------------------ */
 
-test('ランキングは 3回戦/5回戦 × 総合/月別/勝率 × 世界/国内', () => {
+test('ランキングは 3回戦/5回戦 × 総合/月別/週間/勝率 × 世界/国内', () => {
   assert.deepEqual(DIVISIONS.map((division) => division.id), ['5', '3']);
-  assert.deepEqual(RANK_METRICS.map((metric) => metric.id), ['total', 'monthly', 'winrate']);
+  assert.deepEqual(RANK_METRICS.map((metric) => metric.id), ['total', 'monthly', 'weekly', 'winrate']);
   assert.deepEqual(RANK_SCOPES.map((scope) => scope.id), ['world', 'domestic']);
 });
 
@@ -413,7 +413,11 @@ test('iOS プロジェクトの契約（名前・Bundle ID・版番号）', () =
   assert.ok(plist.includes('<string>JANKeN PoN</string>'));
   const pbx = read('ios/App/App.xcodeproj/project.pbxproj');
   assert.ok(pbx.includes('PRODUCT_BUNDLE_IDENTIFIER = jp.signlink.JankenPon;'));
-  assert.ok(pbx.includes('CURRENT_PROJECT_VERSION = 1;'));
+  /* ビルド番号は Build ごとに上がる（Build 2 で 2） */
+  const buildNumbers = [...pbx.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map((m) => Number(m[1]));
+  assert.equal(buildNumbers.length, 2, 'Debug/Release の2箇所にビルド番号がある');
+  assert.ok(buildNumbers.every((n) => Number.isInteger(n) && n >= 1));
+  assert.equal(new Set(buildNumbers).size, 1, '2箇所のビルド番号は同じ');
   assert.ok(pbx.includes('MARKETING_VERSION = 1.0.0;'));
   assert.ok(exists('ios/App/App.xcodeproj/xcshareddata/xcschemes/App.xcscheme'));
   assert.ok(exists('ios/App/App/AppDelegate.swift'));
@@ -434,20 +438,26 @@ test('StoreKit 2 のプラグインが iOS 側に組み込まれている', () =
 
 test('TestFlight ワークフロー: 1行目・BUILD_NUMBER・BUNDLE_ID・preflight', () => {
   const path = 'docs/ios-testflight-build1.yml';
-  assert.ok(exists(path));
+  assert.ok(exists(path), 'Build 1 の履歴として残す');
   const yml = read(path);
   assert.equal(yml.split('\n')[0], '# JANKeN PoN iOS TestFlight Build 1');
-  assert.ok(yml.includes('BUILD_NUMBER: "1"'));
   assert.ok(yml.includes('BUNDLE_ID: jp.signlink.JankenPon'));
   assert.ok(yml.includes('name: JANKeN PoN iOS TestFlight'));
   assert.ok(yml.includes('preflight:'));
   assert.ok(yml.includes('npm test'));
   assert.ok(yml.includes('npx cap sync ios'));
-  assert.ok(yml.includes('CURRENT_PROJECT_VERSION = 1'));
   assert.ok(yml.includes('altool --upload-app'));
   /* 貼り付け前でも古いビルド番号が出ないよう、確認入力と Bundle ID を突き合わせる */
   assert.ok(yml.includes('confirm_bundle_id'));
   assert.ok(yml.includes('test "$CONFIRM" = "$BUNDLE_ID"') || yml.includes('CONFIRM') );
+
+  /* いま使うワークフロー（Build 2 以降）は、ビルド番号を iOS プロジェクトから読む */
+  const current = 'docs/ios-testflight-build2.yml';
+  assert.ok(exists(current), '最新のワークフローがある');
+  const latest = read(current);
+  assert.equal(latest.split('\n')[0], '# JANKeN PoN iOS TestFlight Build 2');
+  assert.equal(/BUILD_NUMBER:\s*"\d+"/.test(latest), false, 'BUILD_NUMBER を固定文字列で持たない');
+  assert.ok(latest.includes('CURRENT_PROJECT_VERSION'), 'iOS プロジェクトからビルド番号を読む');
 });
 
 test('iOS プロジェクトは Capacitor の public を持たない（cap sync が入れる）', () => {

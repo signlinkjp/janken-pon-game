@@ -20,6 +20,20 @@ export function createAudioEngine({
   let master = null;
   let noiseBuffer = null;
   let isMuted = Boolean(muted);
+  /* マスターの基準音量。ミュートはこの値を 0 にする（鳴っている途中の音も即座に止まる） */
+  const baseGain = 0.22 * volume;
+
+  function rampMaster(target) {
+    if (!ctx || !master) return;
+    const t0 = ctx.currentTime;
+    try {
+      master.gain.cancelScheduledValues(t0);
+      master.gain.setValueAtTime(Math.max(0.0001, master.gain.value), t0);
+      master.gain.exponentialRampToValueAtTime(Math.max(0.0001, target), t0 + 0.03);
+    } catch {
+      master.gain.value = target;
+    }
+  }
 
   function ensure() {
     if (!AudioContextClass) return null;
@@ -27,10 +41,12 @@ export function createAudioEngine({
       if (!ctx) {
         ctx = new AudioContextClass();
         master = ctx.createGain();
-        master.gain.value = 0.22 * volume;
+        master.gain.value = isMuted ? 0.0001 : baseGain;
         master.connect(ctx.destination);
       }
-      if (ctx.state === 'suspended') ctx.resume();
+      /* iOS の WKWebView は 'suspended' のほかに 'interrupted' でも止まる。
+         どちらでも、次の操作のたびに起こし直す。 */
+      if (ctx.state !== 'running' && typeof ctx.resume === 'function') ctx.resume();
       return ctx;
     } catch {
       return null;
@@ -154,7 +170,8 @@ export function createAudioEngine({
 
   return {
     unlock() {
-      ensure();
+      const context = ensure();
+      return context ? context.state : null;
     },
     play(name) {
       if (isMuted) return;
@@ -166,12 +183,34 @@ export function createAudioEngine({
         /* 音が出せなくてもゲームは続ける */
       }
     },
+    /**
+     * サウンド ON/OFF。効果音は play() の入口で止め、さらにマスターを 0 にするので、
+     * すでに鳴っている音（遅延して予約されたファンファーレの残りなど）もその場で消える。
+     * OFF→ON では、次の操作で AudioContext を起こし直す。
+     */
     setMuted(next) {
-      isMuted = Boolean(next);
+      const value = Boolean(next);
+      if (value === isMuted) {
+        if (!value) ensure();
+        return isMuted;
+      }
+      isMuted = value;
+      if (isMuted) {
+        rampMaster(0.0001);
+      } else {
+        ensure();
+        rampMaster(baseGain);
+      }
       return isMuted;
     },
     get muted() {
       return isMuted;
+    },
+    get volume() {
+      return master ? master.gain.value : isMuted ? 0 : baseGain;
+    },
+    get state() {
+      return ctx ? ctx.state : 'idle';
     },
     get context() {
       return ctx;

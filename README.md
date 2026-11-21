@@ -1,23 +1,53 @@
-# JANKeN PoN — iOS Build 1
+# JANKeN PoN — iOS Build 2
 
-『JANKeN PoN』は、世界の掛け声で遊ぶじゃんけんゲームです。Build 1 は
-**Capacitor で iOS 化し、App Store 提出 / TestFlight 配信まで持っていける状態** の版です。
+『JANKeN PoN』は、世界の掛け声で遊ぶじゃんけんゲームです。Build 2 は、
+**実機の動画で見つかった指摘（ノッチ被り・文字の小ささ・左右・履歴・かけ声）を直し、
+「締切まで選び直せる／かけ声で同時に開く」ルールにした版** です（App Store 提出 / TestFlight 配信まで持っていけます）。
 
 - アプリ名: **JANKeN PoN** / Bundle ID: **`jp.signlink.JankenPon`**
 - 課金: **`jp.signlink.JankenPon.pro`**（買い切り・StoreKit 2）
-- 版: `MARKETING_VERSION = 1.0.0` / `CURRENT_PROJECT_VERSION = 1`
+- 版: `MARKETING_VERSION = 1.0.0` / `CURRENT_PROJECT_VERSION = 2`
 - 構成: 純粋な ES Modules + 静的アセット（ビルド不要）→ `www/` に写して Capacitor へ
 
 ```
-npm test        # ルール・通信・Build 1 仕様のテスト（134件）
+npm test        # ルール・通信・Build 1/2 仕様のテスト（181件）
 npm run serve   # http://127.0.0.1:4173 で確認（file:// では ES Modules が動きません）
 npm run shots   # Chromium で操作テスト + スクショ（downloads/janken-b1-*.png）
+node tools/shots-b2.mjs  # Build 2 の見た目・操作（downloads/janken-b2-*.png）
 npm run www     # 配布用 www/ を作る
 npm run e2e     # 2ブラウザ × 実 Supabase で合言葉の部屋を5回戦（手動の通し確認）
 npm run ios:sync # cap sync ios（www → ios/App/App/public）
 ```
 
-## ルール（Build 1 はクラシック一本）
+## Build 2 の変更点（2026-11-22）
+
+実機動画（`ScreenRecording_11-22-2026 07-15-36`）の指摘をそのまま直した版。
+
+1. **セーフエリア**: `viewport-fit=cover` ＋ `env(safe-area-inset-top/bottom/left/right)` を
+   `--safe-t` などの変数にして全画面が使う。ノッチ（Dynamic Island）とホームインジケータの下に潜らない。
+   画面が収まらない端末では、どの画面も縦スクロールで全部に届く（`-webkit-overflow-scrolling: touch`）。
+2. **文字サイズ**: 設定に **標準 / 大 / 特大**。`html[data-text-size]` と CSS の `--ts` 倍率で、
+   遊び方の説明からランキングまで一斉に拡大する（保存され、即時反映）。
+3. **サウンド ON/OFF**: ミュートを「発音しない」だけでなく **マスターゲインを 0 に絞る** ようにして、
+   鳴っている途中の音もその場で止まる。ON に戻すときは AudioContext を起こし直す。
+iOS は `AVAudioSession` を `.playback` にしたので、**消音スイッチが入っていても鳴る**。
+4. **国籍は初回登録後ロック**: 国は「この国で登録する」で確定（または初回プレイ時に確定）し、以後は変更不可。
+   **ニックネームだけが設定から変えられる**。保存の入口（`createProfileStore.save`）でもロック済みの国は差し替えない。
+5. **自分（YOU）が左・相手が右**: アリーナ・スタンプの吹き出し・ポイントの浮き出しまで左右を揃えた。
+6. **週間ランキング**: 指標を **総合 / 月別 / 週間 / 勝率** に。週は月曜はじまり（`weekKey`）で、週が変わると 0 に戻る。
+7. **PK戦風の履歴ボード**: プレイ画面に、R1〜R5 の「自分 vs 相手」の手と ○勝 / ×負 / △引分 を常時表示。
+8. **かけ声の切替**: 既定は **左側＝自分** の国の言葉。プレイ画面の **⇄** で相手の国のかけ声に
+   いつでも切り替えられる（CPU 戦・通信対戦のどちらも）。
+9. **締切まで選び直せる**: 手をタップしても確定せず「選択中」のハイライトだけ。カウントが 0 になった時点で、
+   最後に選んでいた手が確定する（未選択ならランダム＝タイムアウト）。
+10. **かけ声で同時に開く**: カウント中は自分も相手も手を伏せたまま。**「ぽん！」の最後の拍で両方の手が同時に開き**、
+    その場で勝敗が出る。通信対戦では、確定前の選択を相手に送らない（送るのは締切の1回だけ）。
+11. **PRO の価格表示**: フォールバックを **¥300**（英語圏 $1.99）に。実際の表示は StoreKit の価格が優先。
+12. **無料と PRO の線引き**: 無料は**同じ国籍のプレイヤー同士の国内対戦**だけで、結果は**国内（国別）ランキング**にのみ入る。
+    世界（国籍をまたぐ）対戦と世界ランキングのエントリーは **PRO**。記録は国内（`world`）と世界（`global`）で別々に持ち、混ざらない。
+    パーティーはどちらにも加算しない。相手が見つからないときの CPU フォールバックはこれまでどおり。
+
+## ルール（Build 2 もクラシック一本）
 
 | 手 | 勝ったときのポイント |
 | --- | --- |
@@ -29,6 +59,8 @@ npm run ios:sync # cap sync ios（www → ios/App/App/public）
 - 1マッチ = **5回戦**（標準）または **3回戦**（スピード部門）。部門ごとにランキングが別。
 - 勝った手のポイントだけが入ります。負けは0pt、相手にその手のポイント。
 - 5回戦の最大は 25pt（毎回パーで勝つ）、3回戦は 15pt。
+- **手を選ぶのは締切まで**: タップは「選択中」だけで、カウントが 0 になるまで何度でも選び直せる。
+  0 になった時点の手で確定し、かけ声の「ぽん！」で自分と相手の手が同時に開く（後出ししない）。
 
 プロトタイプにあった **ゾウ・人間・アリ / 井戸つき** の特殊ルールは、Build 1 では
 **UI に出しません**（`RULESETS` にコードとして残し、v1.1 以降に温存）。
@@ -93,7 +125,7 @@ npm run ios:sync # cap sync ios（www → ios/App/App/public）
 | 言語 | 12言語 | 12言語 |
 
 **ポイントは増えません。** 価格は StoreKit の表示価格が優先で、未取得時は
-日本語 ¥480 / 米国 $2.99 を表示します。
+日本語 **¥300** / 米国 **$1.99** を表示します（2026-11-22 の指示で ¥480 から変更）。
 
 ネイティブでは `ios/App/App/AppDelegate.swift` の `StoreKitPlugin`（StoreKit 2）が
 `getProducts` / `entitlement` / `purchase` / `restore` を返し、`jankenDidLoad` で
@@ -131,16 +163,19 @@ src/i18n.js             12言語のUI文言と長文
 src/pro.js              StoreKit 2 の橋渡しと無料/PROの線引き
 src/online.js           Supabase Realtime（2人対戦・パーティー・ランキング）
 src/main.js             UI コントローラ
-test/core.test.js       ルール・進行・ランキング・保存（62テスト）
+test/core.test.js       ルール・進行・ランキング・保存（63テスト）
 test/online.test.js     通信プロトコル（22テスト・フェイクWSで往復）
 test/build1.test.js     Build 1 仕様（50テスト）
+test/build2.test.js     Build 2 仕様（セーフエリア・文字サイズ・音・国籍ロック・左右・週間・PKボード・かけ声・選び直し・同時オープン・無料/PRO）
 tools/online-e2e.mjs    2ブラウザ × 実 games-realtime の通し確認（手動）
 tools/serve.mjs         静的サーバー
-tools/shots.mjs         Chromium 操作テスト + スクショ
+tools/shots.mjs         Chromium 操作テスト + スクショ（Build 1）
+tools/shots-b2.mjs      Chromium 操作テスト + スクショ（Build 2・セーフエリア想定）
 tools/make-www.mjs      配布用 www/ の生成
 capacitor.config.json   appId / appName / webDir
-ios/                    Capacitor iOS プロジェクト（Bundle ID・アイコン・StoreKit）
-docs/ios-testflight-build1.yml   TestFlight ワークフロー（1行目からコピーして貼る）
+ios/                    Capacitor iOS プロジェクト（Bundle ID・アイコン・StoreKit・AVAudioSession）
+docs/ios-testflight-build2.yml  TestFlight ワークフロー（いま使う版・ビルド番号は pbxproj から自動）
+docs/ios-testflight-build1.yml  Build 1 の履歴（そのまま残す）
 docs/privacy.md         プライバシーポリシー全文（日英）
 docs/live-check.md      実 games-realtime での確認記録（2人対戦・3人パーティー・画面通し）
 ```
@@ -148,23 +183,25 @@ docs/live-check.md      実 games-realtime での確認記録（2人対戦・3�
 ## TestFlight までの手順（トモアキさん向け）
 
 1. GitHub の `signlinkjp/janken-pon-game` にこのリポジトリを push 済み。
-2. `docs/ios-testflight-build1.yml` の中身をコピーして、GitHub の
-   `.github/workflows/ios-testflight-build1.yml` に貼る（DOROKEI と同じ手順。
+2. `docs/ios-testflight-build2.yml` の中身をコピーして、GitHub の
+   `.github/workflows/ios-testflight-build2.yml` に貼る（DOROKEI と同じ手順。
    GitHub連携の権限ではワークフローだけは直接 push できないため）。
-   **1行目は `# JANKeN PoN iOS TestFlight Build 1` のコメントのまま。**
+   **1行目は `# JANKeN PoN iOS TestFlight Build 2` のコメントのまま。**
 3. Actions →「JANKeN PoN iOS TestFlight」→ Run workflow。
    `confirm_bundle_id` に `jp.signlink.JankenPon`、`upload_to_testflight` は true。
 4. Secrets は既存リポジトリと同じ: `APPLE_TEAM_ID` / `APPSTORE_CONNECT_KEY_ID` /
    `APPSTORE_CONNECT_ISSUER_ID` / `APPSTORE_CONNECT_PRIVATE_KEY`。
 5. App Store Connect に **`jp.signlink.JankenPon`** のアプリと、
-   非消耗型 IAP **`jp.signlink.JankenPon.pro`**（提出準備完了・価格 ¥480）が必要。
+   非消耗型 IAP **`jp.signlink.JankenPon.pro`**（提出準備完了・価格 **¥300**）が必要。
 
-preflight は、ワークフローの `BUILD_NUMBER` と iOS プロジェクトの
-`CURRENT_PROJECT_VERSION` が一致しないと止まります（古いビルド番号が TestFlight に出ない）。
+preflight は、pbxproj の `CURRENT_PROJECT_VERSION` を読んで、2箇所（Debug/Release）が
+揃っていること・正の整数であることを確かめてから進みます。**ワークフロー側にはビルド番号を
+書きません**（Build 3 以降は pbxproj の番号を上げるだけ。`MARKETING_VERSION` も同じ場所から読みます）。
 
-## 次の一歩（Build 1 の外）
+## 次の一歩（Build 2 の外）
 
 - App Store 用スクショ（6.9 / 6.5 インチ）とプライバシーマニフェスト（`PrivacyInfo.xcprivacy`）
 - 世界ランキングのサーバー側集計（現在はチャンネル上の行の受け渡し＋ローカル）
 - 特殊ルール（ゾウ・人間・アリ / 井戸つき）の v1.1 復帰
-- 観戦モード、フレンド、月間の切り替わり通知
+- 観戦モード、フレンド、月間・週間の切り替わり通知
+- 好みに合わせて: 選んだ手を「これで決定」で早く閉じるボタン（いまは締切まで待つ）

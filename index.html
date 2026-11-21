@@ -216,27 +216,26 @@
             <span class="chant__w">Jo</span><span class="chant__w">ken</span><span class="chant__w">pô!</span>
           </div>
         </div>
-        <button class="opponent__info" id="btn-opp-info" type="button" aria-label="相手の傾向">
-          <img src="assets/icons/1f4ca.svg" alt="" />
-        </button>
+        <div class="opponent__actions">
+          <button class="chant-toggle" id="btn-chant-toggle" type="button" aria-label="かけ声切替" data-i18n-aria="play.chantToggle">
+            <span class="chant-toggle__mark" aria-hidden="true">⇄</span>
+          </button>
+          <button class="opponent__info" id="btn-opp-info" type="button" aria-label="相手の傾向">
+            <img src="assets/icons/1f4ca.svg" alt="" />
+          </button>
+        </div>
+      </div>
+
+      <!-- PK戦風のスコアボード（自分は左・相手は右） -->
+      <div class="pks" id="pks">
+        <div class="pks__head">
+          <span class="pks__title" data-i18n="play.history">出した手</span>
+          <span class="pks__tally" id="pks-tally">0–0</span>
+        </div>
+        <div class="pks__cells" id="pks-cells"></div>
       </div>
 
       <div class="arena">
-        <div class="pod pod--cpu" id="cpu-pod">
-          <div class="pod__badge" id="cpu-flag"><img src="assets/flags/1f1e7-1f1f7.svg" alt="" /></div>
-          <div class="pod__inner">
-            <div class="pod__face pod__face--back"><span class="pod__q">?</span></div>
-            <div class="pod__face pod__face--front"><img id="cpu-hand-img" src="assets/icons/270a.svg" alt="" /></div>
-          </div>
-          <span class="pod__map" id="cpu-map"></span>
-          <div class="pod__label" id="cpu-label">CPU</div>
-        </div>
-
-        <div class="arena__mid">
-          <span class="vs">VS</span>
-          <div class="arena__round" id="arena-round">ROUND 1</div>
-        </div>
-
         <div class="pod pod--you is-revealed" id="you-pod">
           <div class="pod__badge" id="you-flag"><img src="assets/flags/1f1ef-1f1f5.svg" alt="" /></div>
           <div class="pod__inner">
@@ -247,8 +246,23 @@
           <div class="pod__label">YOU</div>
         </div>
 
-        <div class="stamp-bubble stamp-bubble--cpu" id="cpu-stamp" aria-live="polite"></div>
+        <div class="arena__mid">
+          <span class="vs">VS</span>
+          <div class="arena__round" id="arena-round">ROUND 1</div>
+        </div>
+
+        <div class="pod pod--cpu" id="cpu-pod">
+          <div class="pod__badge" id="cpu-flag"><img src="assets/flags/1f1e7-1f1f7.svg" alt="" /></div>
+          <div class="pod__inner">
+            <div class="pod__face pod__face--back"><span class="pod__q">?</span></div>
+            <div class="pod__face pod__face--front"><img id="cpu-hand-img" src="assets/icons/270a.svg" alt="" /></div>
+          </div>
+          <span class="pod__map" id="cpu-map"></span>
+          <div class="pod__label" id="cpu-label">CPU</div>
+        </div>
+
         <div class="stamp-bubble stamp-bubble--you" id="you-stamp" aria-live="polite"></div>
+        <div class="stamp-bubble stamp-bubble--cpu" id="cpu-stamp" aria-live="polite"></div>
         <div class="floatpts" id="floatpts" aria-hidden="true">+5</div>
       </div>
 
@@ -414,11 +428,19 @@
           <header class="sheet__head">
             <div>
               <h3>国をえらぶ</h3>
-              <p>あなたの旗と、世界ランキングでの表示。</p>
+              <p>あなたの旗と、国内ランキングの表示。世界ランキングは PRO で解禁。</p>
             </div>
             <button class="icon-btn icon-btn--ghost" type="button" data-close aria-label="閉じる">✕</button>
           </header>
+          <p class="country-lock" id="country-lock-note" hidden>
+            <img src="assets/icons/1f512.svg" alt="" />
+            <span data-i18n="country.locked">国籍は初回登録のあと変更できません（ニックネームは設定から変えられます）。</span>
+          </p>
           <div class="country-grid" id="country-grid"></div>
+          <button class="cta cta--small" id="btn-country-confirm" type="button">
+            <span class="cta__label" data-i18n="country.confirm">この国で登録する</span>
+            <span class="cta__sub" data-i18n="country.confirmNote">登録後、国籍は変えられません</span>
+          </button>
         </section>
 
         <section class="sheet" id="sheet-ranking" data-sheet="ranking" hidden>
@@ -446,7 +468,7 @@
           <div class="rank-locked" id="rank-locked" hidden>
             <img src="assets/icons/1f512.svg" alt="" />
             <b data-i18n="online.proWorld">世界の対戦は PRO</b>
-            <span>世界ランキングへの参加は JANKeN PoN PRO（買い切り）で解放されます。国内ランキングは無料です。</span>
+            <span data-i18n="rank.freeNote">無料の対戦結果は、同じ国籍のプレイヤー同士の国内ランキングにだけ入ります。世界ランキングへのエントリーは PRO です。</span>
             <button class="cta cta--small" type="button" id="btn-rank-pro"><span>PRO をみる</span></button>
           </div>
           <p class="sheet__note">5回戦と3回戦は別部門で集計します。両方で1位になると「2冠」です。行をタップすると、そのプレイヤーの手の率が見られます。相手の手の率の詳細表示は PRO の機能です。</p>
@@ -492,7 +514,7 @@
           </header>
 
           <div class="pro-price">
-            <span class="pro-price__amount" id="pro-price-amount">¥480</span>
+            <span class="pro-price__amount" id="pro-price-amount">¥300</span>
             <span class="pro-price__unit" data-i18n="pro.price">買い切り</span>
             <span class="pro-price__badge" data-i18n="pro.noPoints">ポイントは増えません</span>
           </div>
@@ -563,7 +585,8 @@
             <button class="ghost" id="btn-online-retry" type="button"><span data-i18n="online.retry">もう一度さがす</span></button>
             <button class="ghost" id="btn-online-cpu" type="button"><span data-i18n="online.toCpu">CPU練習へ</span></button>
           </div>
-          <p class="sheet__note">1手5秒固定（国際基準）。マッチングは30秒で打ち切り、見つからないときは安全に終了します。自由入力のチャットはありません（定型スタンプのみ・4秒あき）。</p>
+          <p class="sheet__note">1手5秒固定（国際基準）。マッチングは30秒で打ち切り、見つからないときは安全に終了します（CPU練習への案内も出ます）。自由入力のチャットはありません（定型スタンプのみ・4秒あき）。</p>
+          <p class="sheet__note" id="online-country-note" data-i18n="online.sameCountry">国内対戦は、同じ国籍のプレイヤーだけと当たります。</p>
         </section>
 
         <section class="sheet" id="sheet-party" data-sheet="party" hidden>
@@ -613,11 +636,30 @@
           <header class="sheet__head">
             <div>
               <h3 data-i18n="settings.title">設定</h3>
-              <p>音・通知・言語・データの管理。</p>
+              <p>音・文字サイズ・言語・データの管理。</p>
             </div>
             <button class="icon-btn icon-btn--ghost" type="button" data-close aria-label="閉じる">✕</button>
           </header>
           <div class="set-list">
+            <div class="set-row set-row--field">
+              <span data-i18n="settings.nickname">ニックネーム</span>
+              <input id="set-nickname" class="nickname set-row__input" type="text" maxlength="12" placeholder="ニックネーム" autocomplete="off" spellcheck="false" aria-label="ニックネーム" />
+            </div>
+            <button class="set-row" type="button" id="set-country">
+              <span data-i18n="settings.country">国籍</span>
+              <span class="set-row__value" id="set-country-state">日本 🔒</span>
+            </button>
+            <div class="set-row set-row--stack">
+              <div class="set-row__label">
+                <span data-i18n="settings.textSize">文字サイズ</span>
+                <small id="set-textsize-sample" data-i18n="settings.textSizeSample">この大きさで表示されます</small>
+              </div>
+              <div class="seg seg--text" id="text-size-seg" role="group" aria-label="文字サイズ">
+                <button type="button" data-text-size="standard"><span data-i18n="textSize.standard">標準</span></button>
+                <button type="button" data-text-size="large"><span data-i18n="textSize.large">大</span></button>
+                <button type="button" data-text-size="xlarge"><span data-i18n="textSize.xlarge">特大</span></button>
+              </div>
+            </div>
             <button class="set-row" type="button" id="set-language">
               <span data-i18n="settings.language">言語</span><span class="set-row__value" id="set-language-state">日本語</span>
             </button>
@@ -637,7 +679,7 @@
               <span data-i18n="settings.privacy">プライバシーポリシー</span><span class="set-row__value">›</span>
             </button>
           </div>
-          <p class="sheet__note">JANKeN PoN 1.0.0 (Build 1) ・ T-maks Games ・ 自由入力のチャットはありません。</p>
+          <p class="sheet__note">JANKeN PoN 1.0.0 (Build 2) ・ T-maks Games ・ 自由入力のチャットはありません。</p>
         </section>
 
         <section class="sheet" id="sheet-language" data-sheet="language" hidden>

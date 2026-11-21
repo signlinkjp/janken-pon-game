@@ -642,6 +642,12 @@ export class OnlineSession {
     this.reset();
     this.mode = 'quick';
     this.scope = scope === 'world' ? 'world' : 'domestic';
+    /* 世界（国籍をまたぐ）対戦は PRO だけ。無料は同じ国籍の国内ルームに出る */
+    if (this.scope === 'world' && !profile?.pro) {
+      this.mode = null;
+      this.emit({ type: 'error', reason: 'pro-world' });
+      return null;
+    }
     this.rounds = Number(rounds) === 3 ? 3 : 5;
     this.profile = { ...profile, countryCode: country || profile.countryCode || 'JP' };
     const name = quickChannel({ scope: this.scope, country: this.profile.countryCode, rounds: this.rounds });
@@ -1299,6 +1305,7 @@ export class RankingNet {
           countryCode: String(incoming.countryCode ?? 'JP').toUpperCase().slice(0, 2),
           points: Math.max(0, Math.round(Number(incoming.points) || 0)),
           monthlyPoints: Math.max(0, Math.round(Number(incoming.monthlyPoints) || 0)),
+          weeklyPoints: Math.max(0, Math.round(Number(incoming.weeklyPoints) || 0)),
           matches: Math.max(0, Math.round(Number(incoming.matches) || 0)),
           winRate: Math.min(1, Math.max(0, Number(incoming.winRate) || 0)),
           updatedAt: Number(incoming.updatedAt) || this.now(),

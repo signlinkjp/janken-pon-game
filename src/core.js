@@ -647,3 +647,75 @@ export function payloadTooLarge(payload, limit = ONLINE_LIMITS.maxMessageBytes) 
     return true;
   }
 }
+
+/* ------------------------------------------------------------------ *
+ * Build 2 — PK戦風の履歴ボード / かけ声の切替
+ * ------------------------------------------------------------------ */
+
+/**
+ * かけ声の出どころ。
+ *   self … 左側のプレイヤー（＝自分）の国の言葉。Build 2 の既定。
+ *   opp  … 右側の対戦相手の国の言葉。
+ */
+export const CHANT_SIDES = Object.freeze(['self', 'opp']);
+
+export function normalizeChantSide(side) {
+  return side === 'opp' ? 'opp' : 'self';
+}
+
+/** かけ声切替ボタンが呼ぶ1手（self ⇄ opp） */
+export function nextChantSide(side) {
+  return normalizeChantSide(side) === 'opp' ? 'self' : 'opp';
+}
+
+/** 履歴ボードの結果記号（勝○ / 負× / 引分△ / まだ · ） */
+export const ROUND_MARKS = Object.freeze({ win: '○', lose: '×', tie: '△', pending: '·' });
+
+/**
+ * サッカーのPK戦風スコアボード用に、ラウンドごとの手と結果を並べる。
+ * history は createMatch/playRound の history（古い順）。
+ * まだ打っていないラウンドも含めて rounds 個ぶん返す（常時表示のため）。
+ *
+ * @param {Array<{playerHand: string, cpuHand: string, outcome: string, points: number}>} history
+ * @param {number} rounds
+ */
+export function pkBoard(history = [], rounds = ROUNDS_PER_MATCH) {
+  const done = Array.isArray(history) ? history : [];
+  const total = Math.max(1, Number(rounds) || ROUNDS_PER_MATCH, done.length);
+  return Array.from({ length: total }, (_, index) => {
+    const round = done[index] ?? null;
+    const outcome = round?.outcome ?? null;
+    return {
+      index: index + 1,
+      playerHand: round?.playerHand ?? null,
+      cpuHand: round?.cpuHand ?? null,
+      outcome,
+      mark: outcome ? ROUND_MARKS[outcome] ?? ROUND_MARKS.pending : ROUND_MARKS.pending,
+      points: round?.points ?? 0,
+      done: Boolean(round),
+    };
+  });
+}
+
+/** PKボードの勝敗の数（見出し用） */
+export function pkTally(history = []) {
+  const list = Array.isArray(history) ? history : [];
+  return {
+    wins: list.filter((round) => round.outcome === OUTCOME.WIN).length,
+    losses: list.filter((round) => round.outcome === OUTCOME.LOSE).length,
+    ties: list.filter((round) => round.outcome === OUTCOME.TIE).length,
+    done: list.length,
+  };
+}
+
+/**
+ * 締切（カウント終了）での確定（Build 2）。
+ * タップは「選択中」だけで、最後に選んでいた手があればそれを、無ければランダムを返す。
+ */
+export function resolveCommit(selectedHand, { rulesetId = DEFAULT_RULESET, rng = Math.random } = {}) {
+  if (isValidHand(selectedHand, rulesetId)) {
+    return { hand: selectedHand, timedOut: false, source: 'selected' };
+  }
+  const { hand } = resolveTimeout(rulesetId, rng);
+  return { hand, timedOut: true, source: 'timeout' };
+}

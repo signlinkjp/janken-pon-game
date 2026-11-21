@@ -12,15 +12,36 @@
  */
 
 export const STORAGE_KEY = 'janken-pon.profile.v1';
-export const PROFILE_VERSION = 3;
+export const PROFILE_VERSION = 5;
 
 export function monthKey(at = Date.now()) {
   const date = new Date(at);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
+/**
+ * 週のキー（月曜はじまり・ISO 8601 の週番号）。週間ランキングの集計に使う。
+ * 例: 2026-11-22 → '2026-W47'
+ */
+export function weekKey(at = Date.now()) {
+  const date = new Date(at);
+  const day = (date.getDay() + 6) % 7; // 月曜 = 0
+  const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate() - day);
+  const thursday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 3);
+  const firstThursday = new Date(thursday.getFullYear(), 0, 4);
+  const firstDay = (firstThursday.getDay() + 6) % 7;
+  const firstMonday = new Date(thursday.getFullYear(), 0, 4 - firstDay);
+  const week = 1 + Math.round((monday - firstMonday) / (7 * 24 * 60 * 60 * 1000));
+  return `${monday.getFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
 export function defaultMonthly(at = Date.now()) {
   return { month: monthKey(at), points: 0, matches: 0 };
+}
+
+/** 週間ランキング用の「今週ぶん」。週が変わると自動で0に戻る。 */
+export function defaultWeekly(at = Date.now()) {
+  return { week: weekKey(at), points: 0, matches: 0 };
 }
 
 export function defaultDivision(at = Date.now()) {
@@ -33,7 +54,15 @@ export function defaultDivision(at = Date.now()) {
     bestRank: null,
     lastRank: null,
     monthly: defaultMonthly(at),
+    weekly: defaultWeekly(at),
   };
+}
+
+/** 画面の文字サイズ（設定）。CSS の --ts 倍率に対応する。 */
+export const TEXT_SCALES = Object.freeze(['standard', 'large', 'xlarge']);
+
+export function normalizeTextScale(value) {
+  return TEXT_SCALES.includes(value) ? value : 'standard';
 }
 
 export function defaultPractice() {
@@ -61,6 +90,9 @@ export function defaultProfile(at = Date.now()) {
     practice: defaultPractice(),
     party: defaultParty(),
     world: { '5': defaultDivision(at), '3': defaultDivision(at) },
+    /* global = 世界ランキング用（PRO の世界対戦だけが加算する）。
+       world は国内（同じ国籍どうし）のランキング用の記録。 */
+    global: { '5': defaultDivision(at), '3': defaultDivision(at) },
     handCounts: defaultHandCounts(),
     pro: false,
     levelId: 'normal',
@@ -68,6 +100,9 @@ export function defaultProfile(at = Date.now()) {
     locale: 'ja',
     sound: true,
     stampsMuted: false,
+    textScale: 'standard',
+    chantSide: 'self',
+    countryLocked: false,
     createdAt: null,
     lastPlayedAt: null,
   };
@@ -86,18 +121,33 @@ function safeRank(value) {
 }
 
 function sanitizeMonthly(raw, fallback) {
-  if (!raw || typeof raw !== 'object') return { ...fallback };
-  const month = typeof raw.month === 'string' ? raw.month : fallback.month;
-  if (month !== fallback.month) return { month: fallback.month, points: 0, matches: 0 };
+  const base = fallback && typeof fallback === 'object' ? fallback : defaultMonthly();
+  if (!raw || typeof raw !== 'object') return { ...base };
+  const month = typeof raw.month === 'string' ? raw.month : base.month;
+  if (month !== base.month) return { month: base.month, points: 0, matches: 0 };
   return {
     month,
-    points: safeInt(raw.points, fallback.points),
-    matches: safeInt(raw.matches, fallback.matches),
+    points: safeInt(raw.points, base.points),
+    matches: safeInt(raw.matches, base.matches),
+  };
+}
+
+function sanitizeWeekly(raw, fallback) {
+  const base = fallback && typeof fallback === 'object' ? fallback : defaultWeekly();
+  if (!raw || typeof raw !== 'object') return { ...base };
+  const week = typeof raw.week === 'string' ? raw.week : base.week;
+  if (week !== base.week) return { week: base.week, points: 0, matches: 0 };
+  return {
+    week,
+    points: safeInt(raw.points, base.points),
+    matches: safeInt(raw.matches, base.matches),
   };
 }
 
 function sanitizeDivision(raw, fallback = defaultDivision()) {
-  if (!raw || typeof raw !== 'object') return { ...fallback, monthly: { ...fallback.monthly } };
+  if (!raw || typeof raw !== 'object') {
+    return { ...fallback, monthly: { ...fallback.monthly }, weekly: { ...fallback.weekly } };
+  }
   return {
     points: safeInt(raw.points, fallback.points),
     matches: safeInt(raw.matches, fallback.matches),
@@ -107,6 +157,7 @@ function sanitizeDivision(raw, fallback = defaultDivision()) {
     bestRank: raw.bestRank === undefined ? fallback.bestRank : safeRank(raw.bestRank),
     lastRank: raw.lastRank === undefined ? fallback.lastRank : safeRank(raw.lastRank),
     monthly: sanitizeMonthly(raw.monthly, fallback.monthly),
+    weekly: sanitizeWeekly(raw.weekly, fallback.weekly),
   };
 }
 
@@ -149,6 +200,8 @@ export function sanitizeProfile(raw, base = defaultProfile()) {
       ? raw.countryCode.toUpperCase()
       : base.countryCode;
   const rounds = Number(raw.rounds) === 3 ? 3 : 5;
+  /* 国籍: 一度ロックしたら、保存データ側でも勝手に書き換わらない */
+  const countryLocked = Boolean(raw.countryLocked);
 
   // v1 形式（totalPoints / matches / bestRank がトップレベル）からの移行
   const legacyWorld = {
@@ -159,8 +212,14 @@ export function sanitizeProfile(raw, base = defaultProfile()) {
   };
 
   const world = {
-    '5': sanitizeDivision(raw.world?.['5'], { ...legacyWorld, wins: 0, losses: 0, ties: 0, monthly: defaultMonthly() }),
+    '5': sanitizeDivision(raw.world?.['5'], { ...legacyWorld, wins: 0, losses: 0, ties: 0, monthly: defaultMonthly(), weekly: defaultWeekly() }),
     '3': sanitizeDivision(raw.world?.['3'], defaultDivision()),
+  };
+
+  /* 世界ランキング用の記録（Build 2 で追加。古いプロフィールでは 0 から） */
+  const global = {
+    '5': sanitizeDivision(raw.global?.['5'], defaultDivision()),
+    '3': sanitizeDivision(raw.global?.['3'], defaultDivision()),
   };
 
   const practice = sanitizePractice(
@@ -179,6 +238,7 @@ export function sanitizeProfile(raw, base = defaultProfile()) {
     practice,
     party: sanitizeParty(raw.party),
     world,
+    global,
     handCounts: sanitizeHandCounts(raw.handCounts),
     pro: Boolean(raw.pro),
     levelId: typeof raw.levelId === 'string' ? raw.levelId : base.levelId,
@@ -186,6 +246,9 @@ export function sanitizeProfile(raw, base = defaultProfile()) {
     locale: typeof raw.locale === 'string' && raw.locale.length <= 10 ? raw.locale : base.locale,
     sound: raw.sound === undefined ? base.sound : Boolean(raw.sound),
     stampsMuted: Boolean(raw.stampsMuted),
+    textScale: normalizeTextScale(raw.textScale),
+    chantSide: raw.chantSide === 'opp' ? 'opp' : 'self',
+    countryLocked,
     createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : null,
     lastPlayedAt: typeof raw.lastPlayedAt === 'string' ? raw.lastPlayedAt : null,
   };
@@ -228,6 +291,12 @@ export function createProfileStore(backend = defaultBackend(), key = STORAGE_KEY
     },
     save(profile) {
       const clean = sanitizeProfile(profile);
+      /* 国籍は初回登録後ロック。保存の入口でも、ロック済みの国を差し替えさせない */
+      const stored = this.load();
+      if (stored.countryLocked && clean.countryCode !== stored.countryCode) {
+        clean.countryCode = stored.countryCode;
+        clean.countryLocked = true;
+      }
       try {
         backend.setItem(key, JSON.stringify(clean));
       } catch {
@@ -256,6 +325,20 @@ export function divisionIdOf(rounds) {
 
 export function worldOf(profile, divisionId = divisionIdOf(profile.rounds)) {
   return profile.world?.[String(divisionId)] ?? defaultDivision();
+}
+
+/** 世界ランキング用（PRO の世界対戦だけが加算する） */
+export function globalOf(profile, divisionId = divisionIdOf(profile.rounds)) {
+  return profile.global?.[String(divisionId)] ?? defaultDivision();
+}
+
+/**
+ * ランキングの範囲ごとの記録。scope = 'domestic' | 'world'。
+ *   国内 … 同じ国籍のプレイヤー同士の記録（無料でも加算）
+ *   世界 … 国籍をまたぐ対戦の記録（PRO のみ）
+ */
+export function entryFor(profile, divisionId, scope = 'domestic') {
+  return scope === 'world' ? globalOf(profile, divisionId) : worldOf(profile, divisionId);
 }
 
 export function worldPointsOf(profile, divisionId) {
@@ -295,12 +378,15 @@ export function applyMatch(
     rounds = profile.rounds,
     hands = [],
     ranked = true,
+    scope = 'domestic',
     at = Date.now(),
   } = {},
 ) {
   const gained = safeInt(matchPoints);
   const divisionId = divisionIdOf(rounds);
-  const entry = worldOf(profile, divisionId);
+  /* 国内の対戦は local、世界（PRO）の対戦は global に入れる */
+  const bucket = scope === 'world' ? 'global' : 'world';
+  const entry = entryFor(profile, divisionId, scope);
   const iso = new Date(at).toISOString();
 
   const practice = {
@@ -329,6 +415,16 @@ export function applyMatch(
         }
       : { month, points: gained, matches: 1 };
 
+  const week = weekKey(at);
+  const weekly =
+    entry.weekly?.week === week
+      ? {
+          week,
+          points: entry.weekly.points + gained,
+          matches: entry.weekly.matches + 1,
+        }
+      : { week, points: gained, matches: 1 };
+
   const nextEntry =
     rank == null || ranked === false
       ? entry
@@ -342,13 +438,14 @@ export function applyMatch(
           bestRank: entry.bestRank == null ? rank : Math.min(entry.bestRank, rank),
           lastRank: rank,
           monthly,
+          weekly,
         };
 
   return {
     ...profile,
     practice,
     handCounts,
-    world: { ...profile.world, [divisionId]: nextEntry },
+    [bucket]: { ...(profile[bucket] ?? {}), [divisionId]: nextEntry },
     lastPlayedAt: iso,
     createdAt: profile.createdAt ?? iso,
   };
@@ -379,6 +476,46 @@ export function applyParty(profile, { points = 0, champion = false, hands = [], 
     lastPlayedAt: new Date(at).toISOString(),
     createdAt: profile.createdAt ?? new Date(at).toISOString(),
   };
+}
+
+/* ------------------------------------------------------------------
+ * プロフィールの編集（Build 2）
+ * ------------------------------------------------------------------ */
+
+/** 文字サイズを変える（即時反映は main.js が CSS 変数で行う） */
+export function setTextScale(profile, scale) {
+  return { ...profile, textScale: normalizeTextScale(scale) };
+}
+
+/** かけ声の出どころ（self = 自分の国 / opp = 相手の国） */
+export function setChantSide(profile, side) {
+  return { ...profile, chantSide: side === 'opp' ? 'opp' : 'self' };
+}
+
+/**
+ * 国籍の登録。初回だけ国を選べて、その時点でロックする。
+ * ロック後は、何を渡されても国籍は変わらない（ニックネームは別で自由）。
+ */
+export function registerCountry(profile, code, { at = Date.now() } = {}) {
+  if (profile.countryLocked) return profile;
+  const next = typeof code === 'string' && code.length === 2 ? code.toUpperCase() : profile.countryCode;
+  return {
+    ...profile,
+    countryCode: next,
+    countryLocked: true,
+    countryLockedAt: new Date(at).toISOString(),
+  };
+}
+
+/** 初回プレイ時に、いま選んでいる国でロックする（登録の確定） */
+export function lockCountry(profile, { at = Date.now() } = {}) {
+  if (profile.countryLocked) return profile;
+  return { ...profile, countryLocked: true, countryLockedAt: new Date(at).toISOString() };
+}
+
+/** 国籍が変えられるか（ロック前だけ true） */
+export function canChangeCountry(profile) {
+  return !profile?.countryLocked;
 }
 
 /** 練習データだけを消す（世界ランキングの記録はそのまま） */

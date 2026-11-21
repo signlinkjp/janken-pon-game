@@ -28,6 +28,7 @@ import {
   currentRoundNumber,
   chooseCpuHand,
   resolveTimeout,
+  resolveCommit,
   pointsFor,
   rankDelta,
   formatPoints,
@@ -40,6 +41,10 @@ import {
   PARTY_MIN_PLAYERS,
   PARTY_MAX_PLAYERS,
   PARTY_TURN_MS,
+  nextChantSide,
+  normalizeChantSide,
+  pkBoard,
+  pkTally,
 } from './core.js';
 import {
   COUNTRIES,
@@ -70,6 +75,13 @@ import {
   applyPro,
   resetPractice,
   worldOf,
+  entryFor,
+  setTextScale,
+  setChantSide,
+  registerCountry,
+  lockCountry,
+  canChangeCountry,
+  TEXT_SCALES,
 } from './storage.js';
 import { createAudioEngine } from './audio.js';
 import * as i18n from './i18n.js';
@@ -118,6 +130,7 @@ const app = {
   phase: 'idle', // idle | thinking | chant | waiting | reveal | done
   roundCpu: null,
   pickedHand: null,
+  selectedHand: null,
   timedOut: false,
   forcedCpu: [],
   matchHands: [],
@@ -165,15 +178,20 @@ const app = {
     standings: [],
     isHost: false,
     phase: 'idle',
+    selected: null,
     timer: { raf: 0, ms: 0, start: 0, warned: false },
     startedAt: 0,
   },
   locale: 'ja',
   demoKey: null,
+  /* Build 2: かけ声の出どころ（self = 左側の自分 / opp = 右側の相手） */
+  chantSide: 'self',
 };
 
 app.locale = app.profile.locale;
+app.chantSide = normalizeChantSide(app.profile.chantSide);
 sound.setMuted(!app.profile.sound);
+applyTextScale();
 
 const T = (key, vars = {}) => i18n.t(key, app.locale, vars);
 const P = (key) => i18n.prose(key, app.locale);
@@ -220,6 +238,25 @@ function isPro() {
 
 function countryName(country) {
   return app.locale === 'ja' ? country.nameJa : country.nameEn;
+}
+
+/* ------------------------------------------------------------------ *\
+ * 文字サイズ（Build 2）
+ * ------------------------------------------------------------------ */
+
+/** 設定の文字サイズを html の data-text-size に出す（CSS の --ts が切り替わる） */
+function applyTextScale() {
+  const scale = TEXT_SCALES.includes(app.profile.textScale) ? app.profile.textScale : 'standard';
+  document.documentElement.dataset.textSize = scale;
+}
+
+function changeTextScale(scale) {
+  if (!TEXT_SCALES.includes(scale)) return;
+  persist(setTextScale(app.profile, scale));
+  applyTextScale();
+  renderSettings();
+  sound.play('select');
+  toast(T('toast.textSize'), 1200);
 }
 
 /* ------------------------------------------------------------------ *\
@@ -320,13 +357,15 @@ function ensureRankNet({ division, scope }) {
 }
 
 function netRowFor(divisionId, scope) {
-  const entry = worldOf(app.profile, divisionId);
+  /* 国内は world、世界（PRO）は global の記録を送る */
+  const entry = entryFor(app.profile, divisionId, scope);
   return {
     id: selfKey(),
     nickname: displayName(),
     countryCode: app.profile.countryCode,
     points: entry.points,
     monthlyPoints: entry.monthly?.points ?? 0,
+    weeklyPoints: entry.weekly?.points ?? 0,
     matches: entry.matches,
     wins: entry.wins,
     losses: entry.losses,
@@ -353,15 +392,19 @@ function renderHome() {
   const profile = app.profile;
   const country = countryByCode(profile.countryCode);
   const division = divisionForRounds(profile.rounds);
-  const world = worldOf(profile, division);
+  const scope = isPro() ? 'world' : 'domestic';
+  const world = entryFor(profile, division, scope);
 
   $('#home-flag img').src = country.flag;
   $('#home-country-name').textContent = countryName(country);
+  const countryCta = $('#btn-country .country-btn__cta');
+  if (countryCta) {
+    countryCta.textContent = app.profile.countryLocked ? `🔒 ${T('settings.country')}` : '国をかえる';
+  }
   if ($('#nickname').value !== profile.nickname) $('#nickname').value = profile.nickname;
   $('#home-points').textContent = formatPoints(world.points);
   const scopeLabel = isPro() ? T('rank.world') : T('rank.domestic');
   $('#home-rank').textContent = `${scopeLabel} ${rankInDivision(world.points, division)}位`;
-
   document.body.classList.toggle('is-pro', isPro());
 
   renderModes();
@@ -600,6 +643,7 @@ function renderSoundButton() {
   const button = $('#btn-sound');
   button.classList.toggle('is-muted', !app.profile.sound);
   button.setAttribute('aria-label', app.profile.sound ? 'サウンドを消す' : 'サウンドを出す');
+  button.setAttribute('aria-pressed', String(Boolean(app.profile.sound)));
   const state = $('#set-sound-state');
   if (state) state.textContent = app.profile.sound ? T('misc.on') : T('misc.off');
   renderBell();
@@ -664,11 +708,7 @@ function renderPlayChrome() {
   $('#opp-level').textContent = onlineMatch
     ? `ONLINE ・ 5.0s`
     : `CPU ${level.label} ・ ${(level.thinkingTimeMs / 1000).toFixed(1)}s`;
-  const chantHtml = opponent.chantParts
-    .map((part) => `<span class="chant__w">${escapeHtml(part)}</span>`)
-    .join('');
-  $('#opp-chant').innerHTML = chantHtml;
-  $('#big-chant').innerHTML = chantHtml;
+  renderChant();
   $('#cpu-flag img').src = opponent.flag;
   $('#you-flag img').src = me.flag;
   $('#cpu-label').textContent = onlineMatch ? 'OPPONENT' : 'CPU';
@@ -695,9 +735,11 @@ function renderPlayChrome() {
       <span class="handbtn__name">${HAND_META[hand].labelJa}</span>
       <span class="handbtn__pts">${pointsFor(hand, set.id)}pt</span>
     `;
-    button.addEventListener('click', () => chooseHand(hand));
+    button.addEventListener('click', () => selectHand(hand));
     handbar.appendChild(button);
   });
+
+  renderPk();
 
   renderPips();
   renderBell();
@@ -725,6 +767,97 @@ function renderPips() {
     ? `${app.online.opponent?.nickname ?? 'OPP'} ${formatPoints(match.cpuPoints)}`
     : `CPU ${formatPoints(match.cpuPoints)}`;
   $('#arena-round').textContent = `R${currentRoundNumber(match)}/${match.rounds}`;
+  renderPk();
+}
+
+/* ------------------------------------------------------------------ *\
+ * かけ声（自分の国 ⇄ 相手の国）— Build 2
+ * ------------------------------------------------------------------ */
+
+/** いま掛け声を出している国（左の自分が既定） */
+function chantCountry() {
+  const me = countryByCode(app.profile.countryCode);
+  const opponent = countryByCode(app.match?.opponent?.code);
+  return app.chantSide === 'opp' ? opponent : me;
+}
+
+function chantSideName() {
+  return app.chantSide === 'opp' ? T('play.chantOpp') : T('play.chantSelf');
+}
+
+/** バナー（小さいかけ声）と中央の大きいかけ声を、いまの出どころに合わせる */
+function renderChant() {
+  const country = chantCountry();
+  const words = country.chantParts
+    .map((part) => `<span class="chant__w">${escapeHtml(part)}</span>`)
+    .join('');
+  const banner = $('#opp-chant');
+  if (banner) {
+    banner.innerHTML = `<span class="chant-src"><img src="${country.flag}" alt="" /></span>${words}`;
+    banner.classList.toggle('is-opp', app.chantSide === 'opp');
+  }
+  const big = $('#big-chant');
+  if (big) big.innerHTML = words;
+  const toggle = $('#btn-chant-toggle');
+  if (toggle) {
+    toggle.classList.toggle('is-opp', app.chantSide === 'opp');
+    toggle.setAttribute('aria-pressed', String(app.chantSide === 'opp'));
+    toggle.setAttribute(
+      'aria-label',
+      `${T('play.chantToggle')}（いま: ${chantSideName()}）`,
+    );
+  }
+}
+
+/** かけ声切替ボタン。オフラインのCPU戦でも通信対戦でも同じ */
+function toggleChantSide() {
+  app.chantSide = nextChantSide(app.chantSide);
+  persist(setChantSide(app.profile, app.chantSide));
+  renderChant();
+  sound.play('click');
+  toast(`${chantSideName()}: ${countryName(chantCountry())}`, 1500);
+}
+
+/* ------------------------------------------------------------------ *\
+ * PK戦風の履歴ボード — Build 2
+ * ------------------------------------------------------------------ */
+
+/**
+ * 出した手の履歴を、サッカーのPK戦のように並べる。
+ * 左が自分・右が相手、右上の記号が ○勝 / ×負 / △引分。
+ */
+function renderPk() {
+  const cells = $('#pks-cells');
+  if (!cells) return;
+  if (!app.match) {
+    cells.innerHTML = '';
+    return;
+  }
+  const board = pkBoard(app.match.history, app.match.rounds);
+  const current = app.match.roundIndex + 1;
+  cells.innerHTML = board
+    .map((cell) => {
+      const state = cell.done
+        ? `is-${cell.outcome}`
+        : cell.index === current
+          ? 'is-pending is-current is-your-turn'
+          : 'is-pending';
+      const youHand = cell.playerHand
+        ? `<img src="${HAND_META[cell.playerHand].asset}" alt="" />`
+        : '<span class="pk__q">?</span>';
+      const oppHand = cell.cpuHand
+        ? `<img src="${HAND_META[cell.cpuHand].asset}" alt="" />`
+        : '<span class="pk__q">?</span>';
+      return `<div class="pk ${state}" data-round="${cell.index}" aria-label="R${cell.index} ${cell.mark}">
+        <span class="pk__no">R${cell.index}</span>
+        <span class="pk__mark">${cell.mark}</span>
+        <span class="pk__hands">${youHand}<span class="pk__vs">v</span>${oppHand}</span>
+      </div>`;
+    })
+    .join('');
+  const tally = pkTally(app.match.history);
+  const tallyEl = $('#pks-tally');
+  if (tallyEl) tallyEl.textContent = `○${tally.wins} ×${tally.losses} △${tally.ties}`;
 }
 
 function resetArena() {
@@ -740,10 +873,12 @@ function resetArena() {
   $('#play-chant').classList.remove('is-decided');
   const handbar = $('#handbar');
   handbar.classList.remove('is-locked');
-  $$('.handbtn', handbar).forEach((button) => button.classList.remove('is-picked', 'is-dim'));
+  $$('.handbtn', handbar).forEach((button) => {
+    button.classList.remove('is-picked', 'is-dim');
+    button.setAttribute('aria-pressed', 'false');
+  });
   $('#timer-fill').style.width = '100%';
 }
-
 function makeRng(seed) {
   let state = Number(seed) >>> 0 || 1;
   return () => {
@@ -767,6 +902,9 @@ function startMatch({
   const opponent = opponentCode
     ? countryByCode(opponentCode)
     : pickOpponent({ exclude: app.profile.countryCode, rng: seed == null ? Math.random : makeRng(seed) });
+
+  /* 初回プレイで国籍を登録（以後は変更不可） */
+  if (!app.profile.countryLocked) persist(lockCountry(app.profile));
 
   app.matchToken += 1;
   app.matchKind = 'cpu';
@@ -803,6 +941,7 @@ function startMatch({
 function startOnlineMatch(opponent) {
   const rounds = app.online.rounds;
   const country = countryByCode(opponent?.countryCode ?? app.profile.countryCode);
+  if (!app.profile.countryLocked) persist(lockCountry(app.profile));
   app.matchToken += 1;
   app.matchKind = 'online';
   app.turnMs = ONLINE_TURN_MS;
@@ -821,7 +960,7 @@ function startOnlineMatch(opponent) {
   app.matchHands = [];
   app.consecutiveTimeouts = 0;
   app.division = divisionForRounds(rounds);
-  app.rankBefore = rankInDivision(worldOf(app.profile, app.division).points, app.division);
+  app.rankBefore = rankInDivision(entryFor(app.profile, app.division, app.online.scope).points, app.division);
   app.rankAfter = null;
   app.summary = null;
   app.stampCpuCooldownUntil = 0;
@@ -841,6 +980,7 @@ function beginRound() {
   }
   app.phase = 'thinking';
   app.pickedHand = null;
+  app.selectedHand = null;
   app.timedOut = false;
   app.roundCpu = app.matchKind === 'online'
     ? null
@@ -889,25 +1029,63 @@ function stopTimer() {
 
 function handleTimeout() {
   if (app.phase !== 'thinking') return;
-  const { hand, timedOut } = resolveTimeout('standard', app.rng ?? Math.random);
-  $('#timer').classList.add('is-timeup');
-  $('#timer-hint').textContent = T('play.timeup');
-  chooseHand(hand, { timedOut });
+  /* 5秒（CPU練習はレベルごとの秒数）の締切。最後に選んでいた手があればそれで確定。 */
+  if (!app.selectedHand) {
+    $('#timer').classList.add('is-timeup');
+    $('#timer-hint').textContent = T('play.timeup');
+  }
+  commitRound({ timedOut: !app.selectedHand });
 }
 
-async function chooseHand(hand, { timedOut = false } = {}) {
+/**
+ * 手をタップしたとき（Build 2）。
+ * ここでは「選択中」のハイライトだけを付け、確定・送信・公開はしない。
+ * 締切（カウントの 0）まで、何度でも別の手に選び直せる。
+ */
+function selectHand(hand) {
   if (app.phase !== 'thinking') return;
   if (!getRuleset('standard').hands.includes(hand)) return;
+  app.selectedHand = hand;
+  $$('.handbtn').forEach((button) => {
+    button.classList.toggle('is-picked', button.dataset.hand === hand);
+    button.classList.remove('is-dim');
+    button.setAttribute('aria-pressed', String(button.dataset.hand === hand));
+  });
+  $('#timer-hint').textContent = T('play.selected');
+  sound.play('click');
+}
 
+/** かけ声の最後の拍で、自分と相手の手を同時に開く */
+function openPods(cpuHand) {
+  $('#you-hand-img').src = HAND_META[app.pickedHand].asset;
+  $('#you-pod').classList.add('is-revealed');
+  $('#cpu-hand-img').src = HAND_META[cpuHand].asset;
+  $('#cpu-pod').classList.add('is-revealed');
+  sound.play('reveal');
+}
+
+/**
+ * 締切の確定（Build 2）。
+ * 最後に選んでいた手（未選択ならランダム）を確定し、通信対戦ではここで初めて相手に送る。
+ * かけ声は確定後。相手の手が届いてから、かけ声の「ぽん！」で両方の手が開く。
+ */
+async function commitRound({ timedOut = false } = {}) {
+  if (app.phase !== 'thinking') return;
+  const { hand, timedOut: resolvedTimeout } = resolveCommit(app.selectedHand, {
+    rulesetId: 'standard',
+    rng: app.rng ?? Math.random,
+  });
+  const isTimeout = Boolean(timedOut || resolvedTimeout);
+  stopTimer();
   app.phase = 'chant';
   app.pickedHand = hand;
-  app.timedOut = timedOut;
-  app.consecutiveTimeouts = timedOut ? app.consecutiveTimeouts + 1 : 0;
-  stopTimer();
+  app.timedOut = isTimeout;
+  app.consecutiveTimeouts = isTimeout ? app.consecutiveTimeouts + 1 : 0;
   $('#stamp-pop').hidden = true;
 
   if (app.matchKind === 'online' && app.online.session) {
-    app.online.session.pick(app.match.roundIndex, hand, { timeout: timedOut });
+    /* 確定前に送らない（相手の画面に中間の選択を見せない） */
+    app.online.session.pick(app.match.roundIndex, hand, { timeout: isTimeout });
   }
 
   $('#handbar').classList.add('is-locked');
@@ -917,23 +1095,16 @@ async function chooseHand(hand, { timedOut = false } = {}) {
   });
   $('#timer-fill').style.width = '0%';
   $('#timer-num').textContent = '0.0';
-  $('#timer-hint').textContent = timedOut ? T('play.timeup') : T('play.seeno');
-
-  $('#you-hand-img').src = HAND_META[hand].asset;
-  $('#you-pod').classList.add('is-revealed');
-  sound.play('whoosh');
+  $('#timer-hint').textContent = isTimeout ? T('play.timeup') : T('play.seeno');
 
   const token = app.matchToken;
-  await runChant();
-  if (app.phase !== 'chant' || token !== app.matchToken) return;
 
   if (app.matchKind === 'online') {
-    /* 相手の手が先に届いていれば、その場で判定へ。まだなら待つ。 */
+    /* 相手の手がもう届いていれば、すぐかけ声へ。まだなら待つ（お互いに見せない） */
     const pending = app.online.pendingRound;
     if (pending && pending.round === app.match.roundIndex) {
       app.online.pendingRound = null;
-      app.roundCpu = pending.hands.opp;
-      await revealRound();
+      await chantAndReveal(pending.hands.opp, token);
     } else {
       app.phase = 'waiting';
       $('#timer-hint').textContent = T('play.waiting');
@@ -941,10 +1112,20 @@ async function chooseHand(hand, { timedOut = false } = {}) {
     }
     return;
   }
+
+  await chantAndReveal(app.roundCpu, token);
+}
+
+/** かけ声 → 最後の拍で両方の手が開く → 勝敗 */
+async function chantAndReveal(cpuHand, token = app.matchToken) {
+  app.phase = 'chant';
+  await runChant({ onFinal: () => openPods(cpuHand) });
+  if (token !== app.matchToken) return;
+  if (app.phase === 'idle' || !app.match) return;
   await revealRound();
 }
 
-async function runChant() {
+async function runChant({ onFinal = null } = {}) {
   const small = $$('#opp-chant .chant__w');
   const big = $$('#big-chant .chant__w');
   const count = Math.max(small.length, big.length);
@@ -953,15 +1134,17 @@ async function runChant() {
     $$('.chant__w').forEach((word) => word.classList.remove('is-active'));
     small[i]?.classList.add('is-active');
     big[i]?.classList.add('is-active');
+    if (i === count - 1 && onFinal) onFinal();
     sound.play('chant');
     await wait(step);
   }
   $$('.chant__w').forEach((word) => word.classList.remove('is-active'));
 }
 
-/** CPU / 自分の手で1ラウンドを決める */
+/** 1ラウンドを決める（手はもう開いている） */
 async function revealRound() {
   const token = app.matchToken;
+  if (!app.match || app.match.finished) return;
   app.phase = 'reveal';
   const cpuHand = app.roundCpu;
   const next = playRound(app.match, {
@@ -974,9 +1157,10 @@ async function revealRound() {
   const round = next.history[next.history.length - 1];
   const previousPoints = next.playerPoints - round.points;
 
-  $('#cpu-hand-img').src = HAND_META[cpuHand].asset;
-  $('#cpu-pod').classList.add('is-revealed');
-  sound.play('reveal');
+  /* 念のため両方が開いていることを確かめてから判定を出す */
+  if (!$('#you-pod').classList.contains('is-revealed') || !$('#cpu-pod').classList.contains('is-revealed')) {
+    openPods(cpuHand);
+  }
 
   $('#play-chant').classList.add('is-decided');
   const verdict = $('#verdict');
@@ -1010,19 +1194,19 @@ async function revealRound() {
   else beginRound();
 }
 
-/** 通信の相手の手が届いたときの1ラウンド（見た目は CPU 戦と同じ） */
+/** 通信の相手の手が届いたときの1ラウンド（かけ声から、両方の手を同時に開く） */
 async function applyOnlineRound(event) {
   if (!app.match || app.phase === 'idle' || app.match.finished) return;
   if (event.round !== app.match.roundIndex) return;
-  /* 自分の手を出して掛け声の途中なら、掛け声が終わってから使う */
-  if (app.phase === 'chant') {
+  /* 自分の締切前（選んでいる途中）なら、まだ開かない。確定後に使う。 */
+  if (app.phase === 'thinking' || app.phase === 'chant') {
     app.online.pendingRound = event;
     return;
   }
   if (app.phase !== 'waiting') return;
   app.online.pendingRound = null;
   app.roundCpu = event.hands.opp;
-  await revealRound();
+  await chantAndReveal(app.roundCpu, app.matchToken);
 }
 
 function animateNumber(el, to, from = null, ms = COUNT_MS) {
@@ -1097,6 +1281,13 @@ function renderOnlineSheet() {
 }
 
 function startQuick() {
+  /* 無料は同じ国籍の国内ルームだけ。世界（国籍をまたぐ）は PRO。 */
+  if (app.online.scope === 'world' && !isPro()) {
+    app.online.scope = 'domestic';
+    openSheet('pro');
+    toast(T('online.proWorld'), 2200);
+    return;
+  }
   const session = onlineSession();
   if (!session) {
     toast(T('toast.offline'), 2200);
@@ -1334,7 +1525,7 @@ function renderPartyChrome() {
       <span class="handbtn__name">${HAND_META[hand].labelJa}</span>
       <span class="handbtn__pts">${pointsFor(hand, 'standard')}pt</span>
     `;
-    button.addEventListener('click', () => choosePartyHand(hand));
+    button.addEventListener('click', () => selectPartyHand(hand));
     handbar.appendChild(button);
   });
   const chant = countryByCode(app.profile.countryCode).chantParts
@@ -1345,6 +1536,7 @@ function renderPartyChrome() {
 
 function beginPartyRound() {
   app.party.phase = 'thinking';
+  app.party.selected = null;
   $('#party-verdict').classList.remove('is-on', 'is-win', 'is-lose', 'is-tie');
   $('#party-chant').classList.remove('is-decided');
   $('#party-timer-hint').textContent = T('play.choose');
@@ -1390,10 +1582,12 @@ function startPartyTimer(ms) {
       sound.play('urgent');
     }
     if (remain <= 0) {
-      const { hand } = resolveTimeout('standard', Math.random);
-      $('#party-timer').classList.add('is-timeup');
-      $('#party-timer-hint').textContent = T('play.timeup');
-      choosePartyHand(hand, { timedOut: true });
+      /* 締切。最後に選んでいた手があればそれで確定（Build 2） */
+      if (!app.party.selected) {
+        $('#party-timer').classList.add('is-timeup');
+        $('#party-timer-hint').textContent = T('play.timeup');
+      }
+      commitPartyHand({ timedOut: !app.party.selected });
       return;
     }
     app.party.timer.raf = requestAnimationFrame(step);
@@ -1406,15 +1600,33 @@ function stopPartyTimer() {
   app.party.timer.raf = 0;
 }
 
-function choosePartyHand(hand, { timedOut = false } = {}) {
+function selectPartyHand(hand) {
+  if (app.party.phase !== 'thinking') return;
+  if (!getRuleset('standard').hands.includes(hand)) return;
+  app.party.selected = hand;
+  $$('#party-handbar .handbtn').forEach((button) => {
+    button.classList.toggle('is-picked', button.dataset.hand === hand);
+    button.classList.remove('is-dim');
+  });
+  $('#party-timer-hint').textContent = T('play.selected');
+  sound.play('click');
+}
+
+/** 5秒の締切で確定。ここで初めて手を送る（途中の選択は見せない） */
+function commitPartyHand({ timedOut = false } = {}) {
   if (app.party.phase !== 'thinking') return;
   const session = app.online.session;
   if (!session) return;
+  const { hand, timedOut: resolvedTimeout } = resolveCommit(app.party.selected, {
+    rulesetId: 'standard',
+    rng: Math.random,
+  });
+  const isTimeout = Boolean(timedOut || resolvedTimeout);
   app.party.phase = 'chant';
   app.party.hands[selfKey()] = hand;
   app.party.picked = true;
   stopPartyTimer();
-  session.partyPick(app.party.round, hand, { timeout: timedOut });
+  session.partyPick(app.party.round, hand, { timeout: isTimeout });
   $$('#party-handbar .handbtn').forEach((button) => {
     button.classList.toggle('is-picked', button.dataset.hand === hand);
     button.classList.toggle('is-dim', button.dataset.hand !== hand);
@@ -1621,7 +1833,11 @@ function finishMatch() {
   const summary = matchSummary(app.match);
   const division = divisionForRounds(app.match.rounds);
   const ranked = app.matchKind === 'online';
-  const beforePoints = worldOf(app.profile, division).points;
+  /* 通信対戦は、そのときの範囲（国内 / 世界）のランキングにだけ加算する。
+     無料の国内戦は、世界ランキングには一切入らない（Build 2）。 */
+  const scope = ranked ? app.online.scope : 'domestic';
+  app.resultScope = scope;
+  const beforePoints = entryFor(app.profile, division, scope).points;
   const afterPoints = beforePoints + summary.playerPoints;
   app.division = division;
   app.rankBefore = rankInDivision(beforePoints, division);
@@ -1637,6 +1853,7 @@ function finishMatch() {
     rounds: app.match.rounds,
     hands: app.matchHands,
     ranked,
+    scope,
   });
   persist(updated);
 
@@ -1651,13 +1868,14 @@ function finishMatch() {
   if (ranked && app.online.session) app.online.session.leave();
 }
 
-function playerForRanking(divisionId = app.division) {
-  const entry = worldOf(app.profile, divisionId);
+function playerForRanking(divisionId = app.division, scope = app.rankView?.scope ?? 'domestic') {
+  const entry = entryFor(app.profile, divisionId, scope);
   return {
     nickname: displayName(),
     countryCode: app.profile.countryCode,
     points: entry.points,
     monthlyPoints: entry.monthly?.points ?? 0,
+    weeklyPoints: entry.weekly?.points ?? 0,
     matches: entry.matches,
     wins: entry.wins,
     losses: entry.losses,
@@ -1682,7 +1900,7 @@ function renderResult(summary) {
   $('#rank-card').hidden = !ranked;
   $('#result-note').hidden = ranked;
   if (ranked) {
-    $('#rank-scope-label').textContent = app.online.scope === 'world' ? T('result.world') : T('result.domestic');
+    $('#rank-scope-label').textContent = app.resultScope === 'world' ? T('result.world') : T('result.domestic');
     $('#rank-division').textContent = meta.label;
     $('#rank-before').textContent = `${app.rankBefore}位`;
     $('#rank-after').textContent = `${app.rankAfter}位`;
@@ -1697,7 +1915,7 @@ function renderResult(summary) {
       badge.textContent = 'KEEP';
       badge.classList.add('is-flat');
     }
-    $('#result-total').textContent = formatPoints(worldOf(app.profile, app.division).points);
+    $('#result-total').textContent = formatPoints(entryFor(app.profile, app.division, app.resultScope).points);
     $('#rank-total').textContent = `/ ${totalInDivision(app.division, peerRowsFor(app.online.scope))}人中`;
   }
 
@@ -1839,7 +2057,7 @@ function renderRanking() {
   $('#titles-line').hidden = locked;
   $('#rank-locked').hidden = !locked;
 
-  const player = playerForRanking(divisionId);
+  const player = playerForRanking(divisionId, scopeId);
   const peers = locked ? [] : peerRowsFor(scopeId);
   const rows = leaderboard({ division: divisionId, metric: metricId, scope: scopeId, player, peers });
   const me = rows.find((row) => row.isYou);
@@ -1996,6 +2214,27 @@ function renderSettings() {
   $('#set-stamps-state').textContent = app.profile.stampsMuted ? T('misc.off') : T('misc.on');
   $('#set-practice-count').textContent = `${practice.matches}試合`;
   $('#set-language-state').textContent = i18n.localeMeta(app.locale).label;
+
+  /* ニックネーム（変更できる）と国籍（初回登録後ロック） */
+  const nick = $('#set-nickname');
+  if (nick && nick.value !== app.profile.nickname) nick.value = app.profile.nickname;
+  const country = countryByCode(app.profile.countryCode);
+  const state = $('#set-country-state');
+  if (state) {
+    state.textContent = `${countryName(country)} ${app.profile.countryLocked ? '🔒' : '›'}`;
+    state.classList.toggle('is-locked', Boolean(app.profile.countryLocked));
+  }
+  const lockNote = $('#country-lock-note');
+  if (lockNote) lockNote.hidden = !app.profile.countryLocked;
+  const confirm = $('#btn-country-confirm');
+  if (confirm) confirm.hidden = Boolean(app.profile.countryLocked);
+
+  /* 文字サイズ */
+  $$('#text-size-seg button').forEach((button) => {
+    const active = button.dataset.textSize === app.profile.textScale;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
 }
 
 /* ------------------------------------------------------------------ *\
@@ -2004,11 +2243,18 @@ function renderSettings() {
 
 function renderCountryGrid() {
   const grid = $('#country-grid');
+  const locked = !canChangeCountry(app.profile);
+  const lockNote = $('#country-lock-note');
+  if (lockNote) lockNote.hidden = !locked;
+  const confirm = $('#btn-country-confirm');
+  if (confirm) confirm.hidden = locked;
   grid.innerHTML = '';
   for (const country of COUNTRIES) {
+    const current = country.code === app.profile.countryCode;
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = `country-item${country.code === app.profile.countryCode ? ' is-active' : ''}`;
+    button.className = `country-item${current ? ' is-active is-current' : ''}${locked && !current ? ' is-disabled' : ''}`;
+    if (locked && !current) button.setAttribute('aria-disabled', 'true');
     button.innerHTML = `
       <img src="${country.flag}" alt="${countryName(country)}" />
       <span class="country-item__name">${countryName(country)}</span>
@@ -2016,16 +2262,37 @@ function renderCountryGrid() {
       ${country.code === DEFAULT_COUNTRY ? '<span class="country-item__home">HOME</span>' : ''}
     `;
     button.addEventListener('click', () => {
+      /* 国籍は初回登録後は変えられない（ニックネームだけが変えられる） */
+      if (!canChangeCountry(app.profile)) {
+        sound.play('locked');
+        toast(T('toast.countryLocked'), 1800);
+        return;
+      }
       sound.play('select');
       persist({ ...app.profile, countryCode: country.code });
       renderCountryGrid();
       renderHome();
       if (app.match) $('#you-flag img').src = country.flag;
-      closeSheet();
       toast(`${countryName(country)} で挑戦します`);
     });
     grid.appendChild(button);
   }
+}
+
+/** 「この国で登録する」— ここで国籍を確定し、以後は変更不可にする */
+function confirmCountry() {
+  if (app.profile.countryLocked) {
+    toast(T('toast.countryLocked'), 1600);
+    return;
+  }
+  persist(registerCountry(app.profile, app.profile.countryCode));
+  const country = countryByCode(app.profile.countryCode);
+  renderCountryGrid();
+  renderHome();
+  renderSettings();
+  sound.play('select');
+  toast(T('toast.countryRegistered'), 2200);
+  void country;
 }
 
 function renderLanguageGrid() {
@@ -2319,6 +2586,26 @@ function bindEvents() {
 
   $('#btn-result-ranking').addEventListener('click', () => openSheet('ranking'));
   $('#btn-country').addEventListener('click', () => openSheet('country'));
+  $('#btn-country-confirm').addEventListener('click', confirmCountry);
+  $('#set-country').addEventListener('click', () => openSheet('country', { nested: true }));
+  $('#btn-chant-toggle').addEventListener('click', toggleChantSide);
+
+  /* 文字サイズ（設定） */
+  $$('#text-size-seg button').forEach((button) => {
+    button.addEventListener('click', () => changeTextScale(button.dataset.textSize));
+  });
+
+  /* 設定のニックネーム（国籍と違って、いつでも変えられる） */
+  const settingNickname = $('#set-nickname');
+  settingNickname.addEventListener('input', () => {
+    const value = settingNickname.value.slice(0, 12);
+    persist({ ...app.profile, nickname: value });
+    if ($('#nickname').value !== app.profile.nickname) $('#nickname').value = app.profile.nickname;
+    if ($('#sheet-ranking').hidden === false) renderRanking();
+  });
+  settingNickname.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') settingNickname.blur();
+  });
   $('#btn-help').addEventListener('click', () => openSheet('howto'));
 
   $('#practice-strip').addEventListener('click', (event) => {
@@ -2360,12 +2647,14 @@ function bindEvents() {
   $('#btn-sound').addEventListener('click', () => {
     const soundOn = !app.profile.sound;
     persist({ ...app.profile, sound: soundOn });
+    /* 実際の音量はここで切り替える（鳴っている途中の音も止まる） */
     sound.setMuted(!soundOn);
     if (soundOn) {
       sound.unlock();
       sound.play('select');
     }
     renderSoundButton();
+    renderSettings();
     toast(soundOn ? 'サウンド ON' : 'サウンド OFF', 1200);
   });
 
@@ -2471,22 +2760,26 @@ function bindEvents() {
     if (app.view === 'play' && app.phase === 'thinking') {
       const hands = getRuleset('standard').hands;
       const index = Number(event.key) - 1;
-      if (Number.isInteger(index) && hands[index]) chooseHand(hands[index]);
+      if (Number.isInteger(index) && hands[index]) selectHand(hands[index]);
     }
     if (app.view === 'party' && app.party.phase === 'thinking') {
       const hands = getRuleset('standard').hands;
       const index = Number(event.key) - 1;
-      if (Number.isInteger(index) && hands[index]) choosePartyHand(hands[index]);
+      if (Number.isInteger(index) && hands[index]) selectPartyHand(hands[index]);
     }
     if (app.view === 'result' && event.key === 'Enter') $('#btn-again').click();
   });
 
-  document.addEventListener('pointerdown', () => sound.unlock(), { once: true });
+  document.addEventListener('pointerdown', () => {
+    /* iOS はユーザー操作の中でしか音を起こせない。毎回起こし直す（ミュート中も用意だけする） */
+    sound.unlock();
+  });
 
-  /* iOS で戻ってきたとき、ソケットを起こし直す */
+  /* iOS で戻ってきたとき、ソケットと音を起こし直す */
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     if (app.online.client) app.online.client.wake();
+    sound.unlock();
   });
 }
 
@@ -2502,6 +2795,8 @@ function boot() {
   app.rankView.division = app.division;
   app.rankView.scope = isPro() ? 'world' : 'domestic';
   if (!isPro()) app.online.scope = 'domestic';
+  app.chantSide = normalizeChantSide(app.profile.chantSide);
+  applyTextScale();
   bindEvents();
   i18n.applyI18n(document, app.locale);
   renderHome();
@@ -2528,10 +2823,25 @@ function boot() {
 
   window.JANKeNPoN = {
     version: '1.0.0',
-    build: 1,
+    build: 2,
     get profile() {
       return app.profile;
     },
+    get textScale() {
+      return app.profile.textScale;
+    },
+    get countryLocked() {
+      return Boolean(app.profile.countryLocked);
+    },
+    get chant() {
+      return { side: app.chantSide, country: chantCountry().code };
+    },
+    get pk() {
+      return app.match ? pkBoard(app.match.history, app.match.rounds) : [];
+    },
+    setTextScale: changeTextScale,
+    toggleChantSide,
+    confirmCountry,
     get match() {
       return app.match;
     },
@@ -2568,7 +2878,8 @@ function boot() {
     },
     summary: () => (app.match ? matchSummary(app.match) : null),
     startMatch,
-    choose: chooseHand,
+    choose: selectHand,
+    commit: commitRound,
     forceCpuHand(hand) {
       app.forcedCpu.push(hand);
     },

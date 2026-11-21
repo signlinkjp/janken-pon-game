@@ -2,6 +2,7 @@ import UIKit
 import Capacitor
 import Foundation
 import StoreKit
+import AVFoundation
 
 /* JANKeN PoN — the iOS app entry point (Build 1).
  *
@@ -25,7 +26,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // Build 2: Web Audio（BGM・効果音）を、iOS の消音スイッチが入っていても鳴らす。
+        // WKWebView はアプリの AVAudioSession が .ambient（既定値）だと、マナースイッチで
+        // 音が止まる。.playback にしておくと、サウンド ON のときに確実に鳴る
+        // （サウンド OFF はWeb 側のマスターゲインで 0 にしている）。
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            try session.setActive(true)
+        } catch {
+            // 音が出せなくてもゲームは続けられる（落とさない）
+            NSLog("JANKeN PoN: AVAudioSession setup failed: \(error)")
+        }
         return true
     }
 

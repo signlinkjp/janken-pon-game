@@ -3,7 +3,7 @@
  *
  * 表示軸:
  *   部門   … 5回戦 / 3回戦（別集計。両方1位なら「2冠」）
- *   指標   … 総合 / 月別 / 勝率
+ *   指標   … 総合 / 月別 / 週間 / 勝率
  *   範囲   … 世界 / 国内（自分の国だけ）
  *
  * いまはダミーのライバル（RIVALS）だが、形はそのまま Supabase の
@@ -12,6 +12,7 @@
  *   id uuid / nickname text / country_code text
  *   total_points_5 int / total_points_3 int
  *   monthly_5 jsonb / monthly_3 jsonb（{month, points, matches}）
+ *   weekly_5 jsonb / weekly_3 jsonb（{week, points, matches}）
  *   wins_5 / losses_5 / ties_5 / wins_3 / losses_3 / ties_3 int
  *   hand_rock / hand_scissors / hand_paper int
  *   is_pro bool / updated_at timestamptz
@@ -123,6 +124,7 @@ export function divisionMeta(divisionId = '5') {
 export const RANK_METRICS = Object.freeze([
   { id: 'total', label: '総合', short: '総合', unit: 'pt', kind: 'points' },
   { id: 'monthly', label: '月別', short: '月別', unit: 'pt', kind: 'points' },
+  { id: 'weekly', label: '週間', short: '週間', unit: 'pt', kind: 'points' },
   { id: 'winrate', label: '勝率', short: '勝率', unit: '%', kind: 'rate' },
 ]);
 
@@ -181,6 +183,7 @@ export function rivalsFor(divisionId = '5') {
         id: meta.factor === 1 ? rival.id : `${rival.id}-d${id}`,
         points,
         monthlyPoints: Math.round(points * (0.04 + ((index * 13) % 13) / 100)),
+        weeklyPoints: Math.round(points * (0.012 + ((index * 7) % 9) / 200)),
       };
     }).sort((a, b) => b.points - a.points);
     divisionCache.set(id, rows);
@@ -219,6 +222,7 @@ export function normalizePeers(peers = []) {
       countryCode: String(row.countryCode ?? 'JP').toUpperCase().slice(0, 2),
       points: Math.max(0, Math.round(Number(row.points) || 0)),
       monthlyPoints: Math.max(0, Math.round(Number(row.monthlyPoints) || 0)),
+      weeklyPoints: Math.max(0, Math.round(Number(row.weeklyPoints) || 0)),
       matches: Math.max(0, Math.round(Number(row.matches) || 0)),
       wins: Math.max(0, Math.round(Number(row.wins) || 0)),
       losses: Math.max(0, Math.round(Number(row.losses) || 0)),
@@ -237,6 +241,7 @@ export function normalizePeers(peers = []) {
 export function metricValue(row, metricId = 'total') {
   if (!row) return 0;
   if (metricId === 'monthly') return Number(row.monthlyPoints ?? 0);
+  if (metricId === 'weekly') return Number(row.weeklyPoints ?? 0);
   if (metricId === 'winrate') return row.matches > 0 ? Number(row.winRate ?? 0) : 0;
   return Number(row.points ?? 0);
 }
@@ -253,7 +258,7 @@ export function formatMetric(row, metricId = 'total') {
 
 /**
  * ランキングを組み立てる。
- *   player: { nickname, countryCode, points, monthlyPoints, matches, winRate, handRates, pro }
+ *   player: { nickname, countryCode, points, monthlyPoints, weeklyPoints, matches, winRate, handRates, pro }
  */
 export function leaderboard({
   division = '5',
@@ -275,6 +280,7 @@ export function leaderboard({
     countryCode: player.countryCode ?? 'JP',
     points: Math.max(0, Math.round(player.points ?? 0)),
     monthlyPoints: Math.max(0, Math.round(player.monthlyPoints ?? 0)),
+    weeklyPoints: Math.max(0, Math.round(player.weeklyPoints ?? 0)),
     matches: Math.max(0, Math.round(player.matches ?? 0)),
     wins: Math.max(0, Math.round(player.wins ?? 0)),
     losses: Math.max(0, Math.round(player.losses ?? 0)),

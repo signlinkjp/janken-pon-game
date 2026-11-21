@@ -55,23 +55,26 @@ export function frameFor(entitled) {
 
 /** 買い切り価格の表示（StoreKit の displayPrice が来たらそちらが優先） */
 export const FALLBACK_PRICES = {
-  ja: '¥480',
-  en: '$2.99',
-  'zh-Hans': '¥18',
-  'zh-Hant': 'NT$90',
-  ko: '₩4,400',
-  es: '2,99 €',
-  fr: '2,99 €',
-  de: '2,99 €',
-  pt: '2,99 €',
-  it: '2,99 €',
-  hi: '₹249',
-  id: 'Rp49.000',
+  ja: '¥300',
+  en: '$1.99',
+  'zh-Hans': '¥15',
+  'zh-Hant': 'NT$60',
+  ko: '₩2,900',
+  es: '1,99 €',
+  fr: '1,99 €',
+  de: '1,99 €',
+  pt: '1,99 €',
+  it: '1,99 €',
+  hi: '₹169',
+  id: 'Rp32.000',
 };
 
 export function fallbackPrice(locale) {
   return FALLBACK_PRICES[locale] || FALLBACK_PRICES.en;
 }
+
+/** 表示価格の正は StoreKit。まだ取れていないときだけ、このフォールバックを出す。 */
+export const FALLBACK_PRICE_JA = FALLBACK_PRICES.ja;
 
 const MAX_REASON = 92;
 let lastDiagnostic = '';
