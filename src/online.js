@@ -73,31 +73,32 @@ export function onlineConfigured() {
  * チャンネル名
  * ------------------------------------------------------------------ */
 
+/* チャンネル名の接頭辞（ドキュメント用。実際の名前は下の関数が作る） */
 export const CHANNEL_PREFIX = 'janken';
 
 /** クイックマッチ: 国内は国コードで絞り、世界は world。回戦数も部屋を分ける */
 export function quickChannel({ scope = 'domestic', country = 'JP', rounds = 5 } = {}) {
   const where = scope === 'world' ? 'world' : String(country || 'JP').toUpperCase();
-  return `${CHANNEL_PREFIX}-quick:${where}:${Number(rounds) === 3 ? 3 : 5}`;
+  return `janken-quick:${where}:${Number(rounds) === 3 ? 3 : 5}`;
 }
 
 /** 合言葉の部屋（2人対戦・パーティー共通の名前空間は分ける） */
 export function roomChannel(code) {
-  return `${CHANNEL_PREFIX}-room:${normalizeCode(code)}`;
+  return `janken-room:${normalizeCode(code)}`;
 }
 
 export function partyChannel(code) {
-  return `${CHANNEL_PREFIX}-party:${normalizeCode(code)}`;
+  return `janken-party:${normalizeCode(code)}`;
 }
 
 /** 2人の対戦チャンネル（クライアントID2つを並べた決定的な名前） */
 export function matchChannel(keyA, keyB) {
-  return `${CHANNEL_PREFIX}-match:${[String(keyA), String(keyB)].sort().join('-')}`;
+  return `janken-match:${[String(keyA), String(keyB)].sort().join('-')}`;
 }
 
 /** ランキングの受け渡しチャンネル（部門 × 範囲） */
 export function rankChannel({ division = '5', scope = 'domestic' } = {}) {
-  return `${CHANNEL_PREFIX}-rank:${String(division)}:${scope === 'world' ? 'world' : 'domestic'}`;
+  return `janken-rank:${String(division)}:${scope === 'world' ? 'world' : 'domestic'}`;
 }
 
 /** 合言葉の整形（英数字のみ・最大8文字。日本語の合言葉は使わない＝入力ミスと通報の温床を避ける） */
@@ -752,7 +753,7 @@ export class OnlineSession {
 
   pairWith(partnerKey, { initiator = false, room = null } = {}) {
     if (!partnerKey || this.matchName) return;
-    const name = typeof room === 'string' && room.startsWith(`${CHANNEL_PREFIX}-match:`)
+    const name = typeof room === 'string' && room.startsWith('janken-match:')
       ? room
       : matchChannel(this.client.clientId, partnerKey);
     this.matchName = name;
