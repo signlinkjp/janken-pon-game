@@ -1,9 +1,10 @@
-# JANKeN PoN iOS TestFlight Build 1
+# JANKeN PoN iOS TestFlight Build 2
 # ============================================================
-# Build 1（Capacitor iOS 化・PRO 課金・国内/世界・4人パーティー・Supabase 通信）
-# 用のワークフロー。トモアキさんが Safari で GitHub に貼り付ける用。
+# Build 2（セーフエリア・左側が自分・PKボード・かけ声切替・文字サイズ・
+# 国籍ロック・週間ランキング）用のワークフロー。トモアキさんが Safari で
+# GitHub に貼り付ける用。
 #
-#   .github/workflows/ios-testflight-build1.yml
+#   .github/workflows/ios-testflight-build2.yml
 #
 # GitHub連携の権限ではワークフローファイルを直接 push できないため、
 # このファイルの中身をそのままコピーして上に貼ってください（DOROKEI と同じ手順）。
@@ -13,9 +14,13 @@
 #   Actions →「JANKeN PoN iOS TestFlight」→ Run workflow
 #     - confirm_bundle_id に `jp.signlink.JankenPon`
 #     - upload_to_testflight は true（TestFlight へ配信）
-#   ※ ビルド番号は下の BUILD_NUMBER で管理します（Build 1 = 1）。
-#   ※ preflight はワークフロー側の BUILD_NUMBER と iOS プロジェクトの
-#      CURRENT_PROJECT_VERSION が一致しないと止まります（古い番号が出ない）。
+#
+# ★ ビルド番号はこのファイルに書きません。
+#   ios/App/App.xcodeproj/project.pbxproj の CURRENT_PROJECT_VERSION を
+#   そのまま読み取って使います（MARKETING_VERSION も同じ）。
+#   Build 3 にするときは pbxproj の番号を上げるだけで、ワークフローは
+#   書き換えなくて済みます。preflight は、pbxproj の2箇所の番号が
+#   揃っていること・正の整数であることを確かめてから先へ進みます。
 #
 # 必要な Secrets（既存リポジトリと同じ値）:
 #   APPLE_TEAM_ID                   … 例 TGBNH8WJV6
@@ -50,8 +55,7 @@ concurrency:
 env:
   BUNDLE_ID: jp.signlink.JankenPon
   APP_NAME: JANKeN PoN
-  MARKETING_VERSION: "1.0.0"
-  BUILD_NUMBER: "1"
+  PBXPROJ: ios/App/App.xcodeproj/project.pbxproj
 
 jobs:
   preflight:
@@ -73,10 +77,22 @@ jobs:
           set -euo pipefail
           test "$CONFIRM" = "$BUNDLE_ID"
 
+      # ここでビルド番号と表示バージョンを iOS プロジェクトから読む（固定文字列を持たない）
+      - name: Read the build number from the iOS project
+        run: |
+          set -euo pipefail
+          BUILD_NUMBER=$(grep -m1 -E 'CURRENT_PROJECT_VERSION = [0-9]+;' "$PBXPROJ" | sed -E 's/.*CURRENT_PROJECT_VERSION = ([0-9]+);.*/\1/')
+          MARKETING_VERSION=$(grep -m1 -E 'MARKETING_VERSION = [0-9.]+;' "$PBXPROJ" | sed -E 's/.*MARKETING_VERSION = ([0-9.]+);.*/\1/')
+          test -n "$BUILD_NUMBER" || { echo "::error::pbxproj に CURRENT_PROJECT_VERSION がありません"; exit 1; }
+          test -n "$MARKETING_VERSION" || { echo "::error::pbxproj に MARKETING_VERSION がありません"; exit 1; }
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "MARKETING_VERSION=$MARKETING_VERSION" >> "$GITHUB_ENV"
+          echo "ビルド番号: $BUILD_NUMBER / 表示バージョン: $MARKETING_VERSION"
+
       - name: Install web dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Run the JANKeN PoN rule, online and Build 1 tests
+      - name: Run the JANKeN PoN rule, online and Build tests
         run: npm test
 
       - name: Guard the shipped game files
@@ -102,9 +118,10 @@ jobs:
           grep -q 'PARTY_ROUNDS = 5' src/core.js
           grep -q 'PARTY_COUNTS_FOR_RANKING = false' src/core.js
           grep -q 'export function scorePartyRound' src/core.js
-          # 無料/PRO の線引きと商品ID
+          # 無料/PRO の線引きと商品ID・フォールバック価格（¥300）
           grep -q "PRODUCT_ID = 'jp.signlink.JankenPon.pro'" src/pro.js
           grep -q 'export function canPlayWorld' src/pro.js
+          grep -q '¥300' src/pro.js
           # 12言語
           grep -q 'zh-Hant' src/i18n.js
           grep -q 'Bahasa Indonesia' src/i18n.js
@@ -137,18 +154,64 @@ jobs:
           test -f www/src/online.js
           echo "JANKeN PoN web assets OK"
 
+      - name: Guard the Build 2 features
+        run: |
+          set -euo pipefail
+          # 1) セーフエリア（ノッチ・カメラ・ホームインジケータを避ける）
+          grep -q 'viewport-fit=cover' index.html
+          grep -q 'env(safe-area-inset-top' styles.css
+          grep -q -- '--safe-t' styles.css
+          grep -q -- '-webkit-overflow-scrolling: touch' styles.css
+          # 2) 文字サイズ設定（標準 / 大 / 特大）
+          grep -q 'data-text-size' index.html
+          grep -q 'TEXT_SCALES' src/storage.js
+          grep -q 'calc(.*px \* var(--ts))' styles.css
+          # 3) サウンド ON/OFF（マスターを 0 にする）
+          grep -q 'rampMaster' src/audio.js
+          grep -q 'AVAudioSession' ios/App/App/AppDelegate.swift
+          # 4) 国籍は初回登録後ロック・ニックネームは変更可
+          grep -q 'countryLocked' src/storage.js
+          grep -q 'registerCountry' src/main.js
+          grep -q 'settings.nickname' index.html
+          # 5) 自分（YOU）が左・相手が右
+          python3 - <<'PY'
+          import pathlib
+          html = pathlib.Path('index.html').read_text(encoding='utf-8')
+          you = html.index('id="you-pod"')
+          cpu = html.index('id="cpu-pod"')
+          assert you < cpu, 'YOU のカードが相手より先（＝左）にあること'
+          print('left = YOU (you-pod before cpu-pod)')
+          PY
+          grep -q 'stamp-bubble--you { left' styles.css
+          # 6) 週間ランキング
+          grep -q "id: 'weekly'" src/ranking.js
+          grep -q 'weeklyPoints' src/ranking.js
+          grep -q 'weekly' src/storage.js
+          # 7) PK戦風の履歴ボード
+          grep -q 'export function pkBoard' src/core.js
+          grep -q 'id="pks-cells"' index.html
+          grep -q 'renderPk' src/main.js
+          # 8) かけ声切替（自分の国 ⇄ 相手の国）
+          grep -q 'export function nextChantSide' src/core.js
+          grep -q 'id="btn-chant-toggle"' index.html
+          grep -q 'toggleChantSide' src/main.js
+          # ビルド表記
+          grep -q "build: $BUILD_NUMBER" src/main.js
+          grep -q "(Build $BUILD_NUMBER)" index.html
+          echo "Build 2 features OK (build $BUILD_NUMBER)"
+
       - name: Guard the iOS project contract
         run: |
           set -euo pipefail
-          test -f ios/App/App.xcodeproj/project.pbxproj
+          test -f "$PBXPROJ"
           test -f ios/App/App/Info.plist
           test -f ios/App/App/AppDelegate.swift
           test -f ios/App/App/SceneDelegate.swift
           test -f ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png
           test -f ios/App/App.xcodeproj/xcshareddata/xcschemes/App.xcscheme
           test ! -d ios/App/App/public
-          grep -q 'PRODUCT_BUNDLE_IDENTIFIER = jp.signlink.JankenPon;' ios/App/App.xcodeproj/project.pbxproj
-          grep -q 'CURRENT_PROJECT_VERSION = 1;' ios/App/App.xcodeproj/project.pbxproj
+          grep -q 'PRODUCT_BUNDLE_IDENTIFIER = jp.signlink.JankenPon;' "$PBXPROJ"
+          grep -q "CURRENT_PROJECT_VERSION = $BUILD_NUMBER;" "$PBXPROJ"
           grep -q 'import StoreKit' ios/App/App/AppDelegate.swift
           grep -q 'jsName = "StoreKit"' ios/App/App/AppDelegate.swift
           grep -q 'jp.signlink.JankenPon.pro' ios/App/App/AppDelegate.swift
@@ -157,12 +220,14 @@ jobs:
           import os, plistlib, pathlib, re
           plist = plistlib.loads(pathlib.Path('ios/App/App/Info.plist').read_bytes())
           assert plist['CFBundleDisplayName'] == 'JANKeN PoN', plist['CFBundleDisplayName']
-          pbx = pathlib.Path('ios/App/App.xcodeproj/project.pbxproj').read_text()
+          pbx = pathlib.Path(os.environ['PBXPROJ']).read_text()
           assert 'PRODUCT_BUNDLE_IDENTIFIER = jp.signlink.JankenPon;' in pbx
-          assert 'MARKETING_VERSION = 1.0.0;' in pbx
-          version = os.environ['BUILD_NUMBER']
-          assert f'CURRENT_PROJECT_VERSION = {version};' in pbx, 'BUILD_NUMBER と iOS の版番号が違います'
-          print('iOS project contract OK (build %s)' % version)
+          numbers = [int(n) for n in re.findall(r'CURRENT_PROJECT_VERSION = (\d+);', pbx)]
+          assert len(numbers) == 2, f'ビルド番号は2箇所（Debug/Release）: {numbers}'
+          assert len(set(numbers)) == 1, f'2箇所のビルド番号が違います: {numbers}'
+          assert numbers[0] == int(os.environ['BUILD_NUMBER']), 'pbxproj と解決したビルド番号が違います'
+          assert re.search(r'MARKETING_VERSION = [0-9.]+;', pbx), 'MARKETING_VERSION がありません'
+          print('iOS project contract OK (build %s)' % os.environ['BUILD_NUMBER'])
           PY
 
   testflight:
@@ -178,6 +243,17 @@ jobs:
       UPLOAD: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_to_testflight || 'false' }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Read the build number from the iOS project
+        run: |
+          set -euo pipefail
+          BUILD_NUMBER=$(grep -m1 -E 'CURRENT_PROJECT_VERSION = [0-9]+;' "$PBXPROJ" | sed -E 's/.*CURRENT_PROJECT_VERSION = ([0-9]+);.*/\1/')
+          MARKETING_VERSION=$(grep -m1 -E 'MARKETING_VERSION = [0-9.]+;' "$PBXPROJ" | sed -E 's/.*MARKETING_VERSION = ([0-9.]+);.*/\1/')
+          test -n "$BUILD_NUMBER"
+          test -n "$MARKETING_VERSION"
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "MARKETING_VERSION=$MARKETING_VERSION" >> "$GITHUB_ENV"
+          echo "ビルド番号: $BUILD_NUMBER / 表示バージョン: $MARKETING_VERSION"
 
       - name: Verify Apple secret contract
         shell: bash
@@ -246,6 +322,7 @@ jobs:
           test -f ios/App/App/public/src/pro.js
           test -f ios/App/App/public/assets/janken-appicon-1024.png
           grep -q 'JANKeN PoN' ios/App/App/public/index.html
+          grep -q 'safe-area-inset-top' ios/App/App/public/styles.css
           echo "Capacitor sync OK"
 
       - name: Archive (Xcode cloud signing)
@@ -341,7 +418,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: janken-pon-testflight-build1-evidence
+          name: janken-pon-testflight-build2-evidence
           path: |
             build/release/*.log
             build/release/*.json
