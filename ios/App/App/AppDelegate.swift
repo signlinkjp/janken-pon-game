@@ -26,10 +26,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Build 2: Web Audio（BGM・効果音）を、iOS の消音スイッチが入っていても鳴らす。
-        // WKWebView はアプリの AVAudioSession が .ambient（既定値）だと、マナースイッチで
-        // 音が止まる。.playback にしておくと、サウンド ON のときに確実に鳴る
-        // （サウンド OFF はWeb 側のマスターゲインで 0 にしている）。
+        // Build 2 / Build 3: アプリ側の Audio Session を .playback で起こしておく。
+        // これだけで WKWebView の Web Audio が鳴るわけではない（WebView は別プロセスで
+        // 独自の Audio Session を持つ）。Web Audio 側は www/src/audio.js が
+        // navigator.audioSession.type = 'playback' と無音の <audio> で切り替える。
+        // ここは、アプリの音とほかのアプリの音が混ざるようにするための設定。
+        AppDelegate.activateAudioSession()
+        return true
+    }
+
+    /// アプリ側の AVAudioSession を playback で起こし直す。
+    /// 電話・Siri・バックグラウンドから戻ると、セッションが止まっていることがある。
+    static func activateAudioSession() {
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
@@ -38,7 +46,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             // 音が出せなくてもゲームは続けられる（落とさない）
             NSLog("JANKeN PoN: AVAudioSession setup failed: \(error)")
         }
-        return true
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
@@ -54,7 +61,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started).
+        // Build 3: 戻ってきたら Audio Session を起こし直す（音が戻らない問題の対策）
+        AppDelegate.activateAudioSession()
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
@@ -76,6 +84,31 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 final class JankenBridgeViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(StoreKitPlugin())
+        bridge?.registerPluginInstance(JankenAudioPlugin())
+    }
+}
+
+/* Build 3: 音のための小さなブリッジ。
+
+   WKWebView の Web Audio は別プロセスの Audio Session で鳴るので、アプリ側の
+   AVAudioSession を設定するだけでは足りない。それでも「操作のたびにアプリ側の
+   セッションを起こし直す」ことで、ほかのアプリの音と混ざる状態を保てる。
+   www/src/audio.js の unlock() が、Capacitor があるときだけ activate を呼ぶ。 */
+@objc(JankenAudioPlugin)
+public class JankenAudioPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "JankenAudioPlugin"
+    public let jsName = "JankenAudio"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "activate", returnType: CAPPluginReturnPromise)
+    ]
+
+    @objc public func activate(_ call: CAPPluginCall) {
+        AppDelegate.activateAudioSession()
+        let session = AVAudioSession.sharedInstance()
+        call.resolve([
+            "category": session.category.rawValue,
+            "active": session.isOtherAudioPlaying
+        ])
     }
 }
 

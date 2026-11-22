@@ -178,12 +178,13 @@ function makeClient(broker, id) {
   });
 }
 
-function makeSession(client, events) {
+function makeSession(client, events, extra = {}) {
   return new OnlineSession({
     client,
     onEvent: (event) => events.push(event),
     schedule,
     clear,
+    ...extra,
   });
 }
 
@@ -209,7 +210,11 @@ test('チャンネル名: 国内は国コードで分かれ、世界は world', 
   assert.equal(quickChannel({ scope: 'domestic', country: 'br', rounds: 3 }), 'janken-quick:BR:3');
   assert.equal(quickChannel({ scope: 'world', country: 'JP', rounds: 5 }), 'janken-quick:world:5');
   assert.equal(roomChannel('abcd1234'), 'janken-room:ABCD1234');
-  assert.equal(partyChannel('abcd'), 'janken-party:ABCD');
+  /* Build 3: パーティーは国内（国コード）と世界（world）で部屋を分ける */
+  assert.equal(partyChannel('abcd'), 'janken-party:JP:ABCD');
+  assert.equal(partyChannel('abcd', { scope: 'domestic', country: 'br' }), 'janken-party:BR:ABCD');
+  assert.equal(partyChannel('abcd', { scope: 'world' }), 'janken-party:world:ABCD');
+  assert.notEqual(partyChannel('abcd', { scope: 'world' }), partyChannel('abcd'), '同じ合言葉でも国内と世界は別');
   assert.equal(rankChannel({ division: '5', scope: 'world' }), 'janken-rank:5:world');
   assert.equal(rankChannel({ division: '3', scope: 'domestic' }), 'janken-rank:3:domestic');
 });
@@ -518,4 +523,118 @@ test('ランキング: キャッシュは古いと捨てる', () => {
   writeRankCache([{ id: 'a', points: 1 }], backend, 1000);
   assert.equal(readRankCache(backend, { now: 2000, freshMs: 5000 }).length, 1);
   assert.equal(readRankCache(backend, { now: 20000, freshMs: 5000 }).length, 0);
+});
+
+
+/* ================================================================== *\
+ * Build 3: パーティーの国内 / 世界の切り分けと、待ち続けない通信
+ * ================================================================== */
+
+test('パーティー: 国内は同じ国籍だけ（別の国は同じ合言葉でも入らない）', async () => {
+  const broker = new Broker();
+  const eventsJP = [];
+  const eventsBR = [];
+  const sessionJP = makeSession(makeClient(broker, 'aaa'), eventsJP);
+  const sessionBR = makeSession(makeClient(broker, 'bbb'), eventsBR);
+
+  const nameJP = sessionJP.openParty({ code: 'ABCD', profile: { nickname: 'A', countryCode: 'JP', pro: true } });
+  sessionBR.openParty({ code: 'ABCD', profile: { nickname: 'B', countryCode: 'BR', pro: true } });
+  await flush(40);
+
+  assert.equal(nameJP, 'janken-party:JP:ABCD');
+  assert.equal(sessionBR.channel, 'janken-party:BR:ABCD', '国が違えば部屋そのものが別');
+  assert.deepEqual(sessionJP.players.map((player) => player.countryCode), ['JP']);
+  assert.deepEqual(sessionBR.players.map((player) => player.countryCode), ['BR']);
+
+  /* 同じチャンネルに別の国の人が混ざっても、国内の部屋の名簿には入れない
+     （チャンネル名に加えて、国籍でも二重に絞る） */
+  sessionJP.handlePartyPresence([
+    { key: 'aaa', nickname: 'A', countryCode: 'JP' },
+    { key: 'ccc', nickname: 'C', countryCode: 'BR' },
+  ]);
+  assert.deepEqual(sessionJP.players.map((player) => player.key), ['aaa'], '国内の名簿に別の国は入らない');
+  sessionBR.handlePartyPresence([
+    { key: 'aaa', nickname: 'A', countryCode: 'JP' },
+    { key: 'bbb', nickname: 'B', countryCode: 'BR' },
+  ]);
+  assert.deepEqual(sessionBR.players.map((player) => player.key), ['bbb'], '向こうの名簿にも入らない');
+});
+
+test('パーティー: 世界は PRO だけ。無料は断られ、PRO は world の部屋に入る', async () => {
+  const broker = new Broker();
+  const freeEvents = [];
+  const free = makeSession(makeClient(broker, 'f1'), freeEvents);
+  const refused = free.openParty({ code: 'WXYZ', profile: { nickname: 'F', countryCode: 'JP', pro: false }, scope: 'world' });
+  assert.equal(refused, null);
+  assert.ok(freeEvents.some((event) => event.type === 'error' && event.reason === 'pro-world'));
+  assert.equal(free.mode, null, 'モードにも入らない');
+
+  const pro = makeSession(makeClient(broker, 'p1'), []);
+  const name = pro.openParty({ code: 'WXYZ', profile: { nickname: 'P', countryCode: 'JP', pro: true }, scope: 'world' });
+  assert.equal(name, 'janken-party:world:WXYZ');
+  assert.equal(pro.scope, 'world');
+});
+
+test('パーティー: 定員は4人。5人目は満員として入れない（順番は全員で同じ）', async () => {
+  const broker = new Broker();
+  const events = {};
+  const sessions = {};
+  for (const id of ['p1', 'p2', 'p3', 'p4', 'p5']) {
+    events[id] = [];
+    sessions[id] = makeSession(makeClient(broker, id), events[id]);
+    sessions[id].openParty({ code: 'FULL1', profile: { nickname: id, countryCode: 'JP' } });
+  }
+  await flush(60);
+
+  for (const id of ['p1', 'p2', 'p3', 'p4']) {
+    assert.deepEqual(sessions[id].players.map((player) => player.key), ['p1', 'p2', 'p3', 'p4'], id);
+    assert.equal(events[id].some((event) => event.type === 'party-full'), false, `${id} は入れる`);
+  }
+  assert.ok(events.p5.some((event) => event.type === 'party-full'), '5人目は満員');
+  assert.deepEqual(sessions.p5.players.map((player) => player.key), ['p1', 'p2', 'p3', 'p4']);
+});
+
+test('対戦: 相手がマッチの部屋に来なければ、待ち続けずに退出として片付ける', async () => {
+  const broker = new Broker();
+  const events = [];
+  const session = makeSession(makeClient(broker, 'aaa'), events, { matchWaitMs: 40 });
+  session.joinRoom({ code: 'SOLO1', rounds: 5, profile: { nickname: 'A', countryCode: 'JP' } });
+  await flush(20);
+
+  /* 相手役は「組もう」だけ送って、マッチの部屋には来ない */
+  broker.inject(
+    session.channel,
+    { type: 'broadcast', event: 'pair', payload: { from: 'ghost', to: 'aaa', room: 'janken-match:aaa-ghost' } },
+    'ghost',
+  );
+  await flush(30);
+  assert.ok(events.some((event) => event.type === 'paired'), '組み分けは成立する');
+  await flush(120);
+  const left = events.find((event) => event.type === 'opponent-left');
+  assert.ok(left, '相手が来ないので退出として片付ける');
+  assert.equal(left.reason, 'no-opponent');
+});
+
+test('対戦: 送れなかった手は「出した」ことにしない（切断中の取りこぼし）', async () => {
+  const broker = new Broker();
+  const eventsA = [];
+  const sessionA = makeSession(makeClient(broker, 'aaa'), eventsA);
+  const sessionB = makeSession(makeClient(broker, 'bbb'), []);
+  sessionA.joinRoom({ code: 'PAIR1', rounds: 5, profile: { nickname: 'A' } });
+  sessionB.joinRoom({ code: 'PAIR1', rounds: 5, profile: { nickname: 'B' } });
+  await flush(40);
+  assert.ok(sessionA.matchName, '組になっている');
+
+  sessionA.client.close();
+  const sent = sessionA.pick(0, 'rock');
+  assert.equal(sent, false, 'ソケットが無いので送れない');
+  assert.equal(sessionA.myPicks.has(0), false, '送れていない手を記録しない（次の操作で出せる）');
+});
+
+test('対戦: 戻ってきたら、結果の出ていない手を送り直す（重複は相手が捨てる）', async () => {
+  const source = await import('node:fs').then((fs) =>
+    fs.readFileSync(new URL('../src/online.js', import.meta.url), 'utf8'));
+  assert.ok(/繋が|切断して戻ってきたとき/.test(source));
+  assert.ok(/for \(const \[index, hand\] of this\.myPicks\)/.test(source), '送り直すループがある');
+  assert.ok(/if \(this\.resolved\.has\(index\)\) continue;/.test(source), '決着済みは送らない');
 });

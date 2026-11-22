@@ -157,21 +157,21 @@ export function isRulesetVisible(rulesetId) {
 
 /**
  * CPU レベル。thinkingTimeMs がそのままシンキングタイムになる。
- * 1人用（CPU 練習）だけが思考時間を選べる：初級10秒 〜 最強2秒。
- * 通信対戦は ONLINE_TURN_MS（5秒）固定で、ここは使わない。
+ * 1人用（CPU 練習）だけが思考時間を選べる：初級7秒 / 中級5秒（既定）/
+ * 上級3秒 / 最強2秒。通信対戦は ONLINE_TURN_MS（5秒）固定で、ここは使わない。
  */
 export const LEVELS = Object.freeze({
   easy: {
-    id: 'easy', label: 'EASY', labelJa: '初級', thinkingTimeMs: 10000, pro: false,
-    blurbJa: '10秒。じっくり考えてよい。まずはここから。',
+    id: 'easy', label: 'EASY', labelJa: '初級', thinkingTimeMs: 7000, pro: false,
+    blurbJa: '7秒。じっくり考えてよい。まずはここから。',
   },
   normal: {
-    id: 'normal', label: 'NORMAL', labelJa: '中級', thinkingTimeMs: 7000, pro: false,
-    blurbJa: '7秒。ときどき、あなたの癖をのぞいてくる。',
+    id: 'normal', label: 'NORMAL', labelJa: '中級', thinkingTimeMs: 5000, pro: false,
+    blurbJa: '5秒。ときどき、あなたの癖をのぞいてくる。',
   },
   hard: {
-    id: 'hard', label: 'HARD', labelJa: '上級', thinkingTimeMs: 4000, pro: false,
-    blurbJa: '4秒。あなたが出しがちな手を、ちゃんと覚えている。',
+    id: 'hard', label: 'HARD', labelJa: '上級', thinkingTimeMs: 3000, pro: false,
+    blurbJa: '3秒。あなたが出がちな手を、ちゃんと覚えている。',
   },
   master: {
     id: 'master', label: 'MASTER', labelJa: '最強', thinkingTimeMs: 2000, pro: true,
@@ -494,6 +494,12 @@ export { RULESET_LIST };
 
 /** 戦績パネルで並べる基本の手 */
 export const HAND_SERIES = Object.freeze(['rock', 'scissors', 'paper']);
+
+/**
+ * 手の色（戦績バー・ランキングの3色バー・凡例で同じ値を使う）。
+ * ここを変えれば、バーと凡例が必ずそろって変わる。
+ */
+export const HAND_COLORS = Object.freeze({ rock: '#ffcf5c', scissors: '#4fe3ff', paper: '#a58bff' });
 
 export function emptyHandCounts() {
   return {

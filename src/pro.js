@@ -38,9 +38,28 @@ export function canPlayDomestic() {
   return true;
 }
 
-/** 最大4人パーティーバトルは PRO */
-export function canPlayParty(entitled) {
+/**
+ * パーティーバトル（2〜4人・5回戦）。
+ * Build 3: 国内パーティー（同じ国籍どうし）は無料で遊べる。
+ * 世界パーティー（ほかの国の人も募集・参加できる）だけが PRO。
+ */
+export function canPlayParty(entitled = false) {
+  return canPlayDomesticParty() || canPlayWorldParty(entitled);
+}
+
+/** 国内パーティー（同じ国籍だけ・国コードでチャンネルも分ける）は無料 */
+export function canPlayDomesticParty() {
+  return true;
+}
+
+/** 世界パーティー（国籍をまたぐ）は PRO */
+export function canPlayWorldParty(entitled) {
   return entitled === true;
+}
+
+/** 選べるパーティーの範囲（無料は国内だけ、PRO は世界も） */
+export function partyScopesFor(entitled) {
+  return entitled === true ? ['domestic', 'world'] : ['domestic'];
 }
 
 /** 対戦相手の詳しい手の率（✊✌️✋%）は PRO */

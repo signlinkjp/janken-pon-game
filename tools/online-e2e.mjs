@@ -72,7 +72,18 @@ async function main() {
     await B.click('#btn-room-join');
 
     for (const [name, page] of [['A', A], ['B', B]]) {
-      await page.waitForSelector('#screen-play.is-active', { timeout: 25000 });
+      try {
+        await page.waitForSelector('#screen-play.is-active', { timeout: 25000 });
+      } catch (e) {
+        const diag = await page.evaluate(() => ({
+          view: document.querySelector('.screen.is-active')?.id ?? null,
+          online: window.JANKeNPoN.online,
+          toast: document.querySelector('#toast')?.textContent ?? '',
+          sheet: !document.querySelector('#sheet-online').hidden,
+        })).catch(() => null);
+        console.error(`DIAG ${name}`, JSON.stringify(diag), errors.slice(0, 4));
+        throw e;
+      }
       const chrome = await page.evaluate(() => ({
         timer: document.querySelector('#timer-num').textContent,
         level: document.querySelector('#opp-level').textContent,
@@ -105,7 +116,21 @@ async function main() {
 
     for (const [name, page, expect] of [['A', A, 'win'], ['B', B, 'lose']]) {
       await page.bringToFront();
-      await page.waitForSelector('#screen-result.is-active', { timeout: 30000 });
+      try {
+        await page.waitForSelector('#screen-result.is-active', { timeout: 30000 });
+      } catch (e) {
+        const diag = await page.evaluate(() => ({
+          view: document.querySelector('.screen.is-active')?.id ?? null,
+          phase: window.JANKeNPoN.phase,
+          round: window.JANKeNPoN.match?.roundIndex ?? null,
+          rounds: window.JANKeNPoN.match?.rounds ?? null,
+          history: window.JANKeNPoN.match?.history?.length ?? 0,
+          online: window.JANKeNPoN.online,
+          toast: document.querySelector('#toast')?.textContent ?? '',
+        })).catch(() => null);
+        console.error(`DIAG result ${name}`, JSON.stringify(diag), errors.slice(0, 4));
+        throw e;
+      }
       const result = await page.evaluate(() => ({
         verdict: document.querySelector('#result-verdict').textContent,
         points: document.querySelector('#result-points').textContent,
@@ -131,4 +156,7 @@ async function main() {
 main().catch((error) => {
   console.error(`\n✗ ${error.message}`);
   process.exitCode = 1;
+});
+process.on('exit', () => {
+  for (const item of checks) console.log(`${item.ok ? '✓' : '✗'} ${item.name}`);
 });

@@ -112,7 +112,6 @@
             <span class="mode-card__body">
               <b data-i18n="mode.party">パーティー</b>
               <em data-i18n="mode.partyNote">2〜4人・5回戦</em>
-              <span class="mode-card__pro" data-pro-only>PRO</span>
             </span>
           </button>
         </div>
@@ -141,7 +140,7 @@
 
         <button class="cta" id="btn-play" type="button">
           <span class="cta__label" id="play-label">5回戦をはじめる</span>
-          <span class="cta__sub" id="play-sub">NORMAL ・ 7.0秒 ・ CLASSIC</span>
+          <span class="cta__sub" id="play-sub">NORMAL ・ 5.0秒 ・ CLASSIC</span>
         </button>
 
         <button class="ghost ghost--wide" id="btn-online-open" type="button" hidden>
@@ -277,10 +276,16 @@
       <div class="timer" id="timer">
         <div class="timer__row">
           <span class="timer__hint" id="timer-hint" data-i18n="play.choose">手をえらんでください</span>
-          <span class="timer__num"><b id="timer-num">7.0</b><small>s</small></span>
+          <span class="timer__num"><b id="timer-num">5.0</b><small>s</small></span>
         </div>
         <div class="timer__bar"><i class="timer__fill" id="timer-fill"></i></div>
       </div>
+
+      <button class="lockbtn" id="btn-lock" type="button" hidden>
+        <span class="lockbtn__label" data-i18n="play.lock">これで決定</span>
+        <span class="lockbtn__hand" id="lock-hand"></span>
+        <span class="lockbtn__hint" data-i18n="play.lockHint">押すとすぐ「ぽん！」。押さなければ締切まで選び直せます</span>
+      </button>
 
       <div class="handbar" id="handbar"></div>
 
@@ -322,6 +327,12 @@
         </div>
         <div class="timer__bar"><i class="timer__fill" id="party-timer-fill"></i></div>
       </div>
+
+      <button class="lockbtn" id="btn-party-lock" type="button" hidden>
+        <span class="lockbtn__label" data-i18n="play.lock">これで決定</span>
+        <span class="lockbtn__hand" id="party-lock-hand"></span>
+        <span class="lockbtn__hint" data-i18n="play.lockHint">押すとすぐ「ぽん！」。押さなければ締切まで選び直せます</span>
+      </button>
 
       <div class="handbar" id="party-handbar"></div>
     </section>
@@ -463,7 +474,9 @@
           </div>
 
           <div class="titles" id="titles-line"></div>
+          <div class="rank-legend" id="rank-legend" hidden></div>
           <div class="rank-me" id="rank-me"></div>
+          <p class="rank-note" id="rank-note" hidden></p>
           <div class="rank-list" id="rank-list"></div>
           <div class="rank-locked" id="rank-locked" hidden>
             <img src="assets/icons/1f512.svg" alt="" />
@@ -501,7 +514,7 @@
             <div class="handrows" id="stats-hands"></div>
           </div>
           <div class="stat-grid" id="stat-grid"></div>
-          <p class="sheet__note">手の率は、この端末で出した手の回数から計算しています。パーティーの手も含みます（ランキングには加算しません）。</p>
+          <p class="sheet__note">手の率は、この端末で出した手の回数から計算しています。パーティーの手も含みます（ランキングには加算しません）。勝率は、あいこを除いた勝負（1対1）で数えます。</p>
         </section>
 
         <section class="sheet sheet--pro" id="sheet-pro" data-sheet="pro" hidden>
@@ -526,7 +539,7 @@
             </li>
             <li>
               <img src="assets/icons/1f451.svg" alt="" />
-              <div><b data-i18n="pro.item2">最大4人パーティーバトル</b><span>2〜4人・5回戦。結果はランキングに加算されません。</span></div>
+              <div><b data-i18n="pro.item2">世界パーティーバトル（最大4人）</b><span>国内パーティー（同じ国籍）は無料。世界は PRO で、ほかの国の人とも同じ合言葉で集まれます。</span></div>
             </li>
             <li>
               <img src="assets/icons/1f9e0.svg" alt="" />
@@ -597,6 +610,9 @@
             </div>
             <button class="icon-btn icon-btn--ghost" type="button" data-close aria-label="閉じる">✕</button>
           </header>
+
+          <div class="scope-seg scope-seg--sheet" id="party-scope-seg" role="group" aria-label="パーティーの範囲"></div>
+          <p class="panel-note" id="party-scope-note">国内パーティーは同じ国籍の4人まで（無料）。世界パーティーは PRO で、どこの国の人とも遊べます。結果はランキング対象外です。</p>
 
           <div class="party-code">
             <span data-i18n="online.code">合言葉</span>
@@ -669,6 +685,9 @@
             <button class="set-row" type="button" id="set-sound">
               <span data-i18n="settings.sound">サウンド</span><span class="set-row__value" id="set-sound-state">ON</span>
             </button>
+            <button class="set-row set-row--sound-test" type="button" id="set-sound-test">
+              <span data-i18n="settings.soundTest">音をテスト</span><span class="set-row__value" id="set-sound-test-state">▶ 再生</span>
+            </button>
             <button class="set-row" type="button" id="set-stamps">
               <span data-i18n="settings.stamps">スタンプ通知</span><span class="set-row__value" id="set-stamps-state">ON</span>
             </button>
@@ -679,7 +698,7 @@
               <span data-i18n="settings.privacy">プライバシーポリシー</span><span class="set-row__value">›</span>
             </button>
           </div>
-          <p class="sheet__note">JANKeN PoN 1.0.0 (Build 2) ・ T-maks Games ・ 自由入力のチャットはありません。</p>
+          <p class="sheet__note">JANKeN PoN 1.0.0 (Build 3) ・ T-maks Games ・ 自由入力のチャットはありません。</p>
         </section>
 
         <section class="sheet" id="sheet-language" data-sheet="language" hidden>

@@ -87,8 +87,15 @@ export function roomChannel(code) {
   return `janken-room:${normalizeCode(code)}`;
 }
 
-export function partyChannel(code) {
-  return `janken-party:${normalizeCode(code)}`;
+/**
+ * パーティーの部屋（Build 3）。
+ *   国内 … 国コードでチャンネルを分ける（同じ国籍の人だけが同じ部屋に入る）
+ *   世界 … `world` の部屋（PRO。どの国の人でも同じ合言葉で集まれる）
+ * 合言葉が同じでも、国内と世界は別の部屋になる。
+ */
+export function partyChannel(code, { scope = 'domestic', country = 'JP' } = {}) {
+  const where = scope === 'world' ? 'world' : String(country || 'JP').toUpperCase();
+  return `janken-party:${where}:${normalizeCode(code)}`;
 }
 
 /** 2人の対戦チャンネル（クライアントID2つを並べた決定的な名前） */
@@ -557,6 +564,15 @@ export class RealtimeClient {
 
 const JOIN_WAIT_MS = 8000;
 const OPPONENT_GRACE_MS = 1500;
+/** 組み分けのあと、相手がマッチの部屋に現れるまでの猶予（Build 3） */
+const MATCH_JOIN_WAIT_MS = 15000;
+/**
+ * 組んだあとも、待機チャンネルに残る時間（Build 3）。
+ * 先に組んだ人がすぐ離れると、ほぼ同時に入ってきた相手の join 応答に
+ * 自分が載っておらず、相手が「ひとりぼっち」のまま待ち続ける（実際に起きた）。
+ * 2.5秒だけ残って、遅れて届いた join 応答／presence に自分を見せる。
+ */
+const WAIT_LINGER_MS = 2500;
 
 export class OnlineSession {
   constructor({
@@ -566,8 +582,10 @@ export class OnlineSession {
     schedule = setTimeout,
     clear = clearTimeout,
     random = Math.random,
+    matchWaitMs = MATCH_JOIN_WAIT_MS,
   } = {}) {
     this.client = client;
+    this.matchWaitMs = Number(matchWaitMs) > 0 ? Number(matchWaitMs) : MATCH_JOIN_WAIT_MS;
     this.onEvent = onEvent;
     this.now = now;
     this.schedule = (fn, ms) => schedule(fn, ms);
@@ -726,22 +744,26 @@ export class OnlineSession {
     if (index < 0) return;
 
     if (this.mode === 'room') {
-      /* 合言葉の部屋は先着2人。並び順で先の人が部屋を作る */
+      /* 合言葉の部屋は先着2人。組は2人から決まる（マッチのチャンネル名は
+         2人のIDから決まるので、どちらから入っても同じ部屋になる）。
+         Build 3: 後の人も自分から入る。先の人が `pair` を送った直後に
+         待機チャンネルを離れると、後の人がその電文を取りこぼして
+         永遠に待つ（実際に起きた）ため、電文の到着に頼らない。 */
       if (keys.length >= 2 && keys.slice(0, 2).includes(mine)) {
         const first = keys[0] === mine;
-        if (first) this.pairWith(keys[1], { initiator: true });
-        else this.emit({ type: 'waiting', mode: this.mode, present: keys.length, remainingMs: 0 });
+        this.pairWith(first ? keys[1] : keys[0], { initiator: first });
       }
       return;
     }
 
     /* クイックマッチ: 並び順で 0-1, 2-3 … と組む。余った1人は待ち続ける。
-       組むのは並び順で先の人だけ。後の人は相手からの `pair` 電文で入る
-       （先の人が待機チャンネルを離れる早さに左右されないため）。 */
+       組は並び順で決まる（0-1 / 2-3）ので、後の人も同じ相手へ自分から入る。
+       `pair` 電文が届かなくても組めるようにするための Build 3 の修正。 */
     const pairStart = index % 2 === 0 ? index : index - 1;
-    const partner = pairStart === index ? keys[pairStart + 1] : null;
+    const firstKey = keys[pairStart];
+    const partner = firstKey === mine ? keys[pairStart + 1] : firstKey;
     if (partner) {
-      this.pairWith(partner, { initiator: true });
+      this.pairWith(partner, { initiator: firstKey === mine });
       return;
     }
     this.emit({ type: 'waiting', mode: this.mode, present: keys.length, remainingMs: this.remainingMs });
@@ -794,12 +816,46 @@ export class OnlineSession {
     this.openChannel(name, this.meta({ mode: 'match' }), {
       onStatus: (status) => {
         if (status === 'joined') {
-          /* マッチチャンネルに入れたら、もう待機チャンネルには用がない */
-          if (waiting && waiting !== name) this.client.unsubscribe(waiting);
+          /* マッチチャンネルに入れたら、待機チャンネルは「相手の姿を確認するまで」
+             離れない（Build 3）。先に組んだ人がすぐ離れると、ほぼ同時に入ってきた
+             相手の join 応答に自分が載らず、相手がひとりぼっちで待ち続ける。 */
+          if (waiting && waiting !== name) {
+            this.waitingChannel = waiting;
+            if (this.waitLinger) this.clear(this.waitLinger);
+            this.waitLinger = this.schedule(() => {
+              this.waitLinger = null;
+              this.releaseWaiting();
+            }, WAIT_LINGER_MS);
+            if (initiator) {
+              /* 取りこぼした相手のために、もう一度だけ「この部屋へ」と伝える */
+              for (const delay of [400, 1200]) {
+                this.schedule(() => {
+                  if (!this.matchName || this.matchName !== name) return;
+                  this.client.broadcast(waiting, 'pair', {
+                    from: this.client.clientId,
+                    to: partnerKey,
+                    room: name,
+                  });
+                }, delay);
+              }
+            }
+          }
           this.client.broadcast(name, 'hello', {
             from: this.client.clientId,
             ...this.meta({ host: this.host }),
           });
+          /* 切断して戻ってきたとき、送り済みの手が届いていないことがある。
+             まだ結果の出ていないラウンドの手を送り直す（相手側は重複を捨てる）。 */
+          for (const [index, hand] of this.myPicks) {
+            if (this.resolved.has(index)) continue;
+            this.client.broadcast(name, 'pick', {
+              from: this.client.clientId,
+              round: index,
+              hand,
+              timeout: false,
+              at: this.now(),
+            });
+          }
         }
         if (status === 'error') this.emit({ type: 'error', reason: 'match-join' });
       },
@@ -809,6 +865,14 @@ export class OnlineSession {
     this.started = true;
     this.leftNotified = false;
     this.opponentSeen = false;
+    /* 組めたのに相手がマッチの部屋へ来ない（回線が切れた・アプリを閉じた）とき、
+       5秒の手だけ送って永遠に待たない。15秒で「退出」として片付ける。 */
+    if (this.matchWatchdog) this.clear(this.matchWatchdog);
+    this.matchWatchdog = this.schedule(() => {
+      this.matchWatchdog = null;
+      if (!this.matchName || this.opponentSeen || this.partyOver) return;
+      this.emit({ type: 'opponent-left', reason: 'no-opponent' });
+    }, this.matchWaitMs);
     this.emit({
       type: 'paired',
       mode: 'match',
@@ -818,12 +882,29 @@ export class OnlineSession {
     });
   }
 
+  /** 待機チャンネルを離れる（相手の姿をマッチの部屋で確認できたとき） */
+  releaseWaiting() {
+    if (this.waitLinger) {
+      this.clear(this.waitLinger);
+      this.waitLinger = null;
+    }
+    if (this.waitingChannel) {
+      this.client.unsubscribe(this.waitingChannel);
+      this.waitingChannel = null;
+    }
+  }
+
   handleMatchPresence(members) {
     if (!this.matchName || !this.opponent) return;
     const keys = members.map((member) => member.key);
     if (keys.includes(this.opponent.key)) {
       /* 一度でも相手を見た。これ以降に消えたら「退出」として扱う */
       this.opponentSeen = true;
+      if (this.matchWatchdog) {
+        this.clear(this.matchWatchdog);
+        this.matchWatchdog = null;
+      }
+      this.releaseWaiting();
       return;
     }
     /* 自分が先に入った直後は、相手がまだ来ていないだけ。退出とは違う */
@@ -838,6 +919,12 @@ export class OnlineSession {
     if (payloadTooLarge(payload)) return;
     if (event === 'hello') {
       if (payload.from === mine) return;
+      this.opponentSeen = true;
+      if (this.matchWatchdog) {
+        this.clear(this.matchWatchdog);
+        this.matchWatchdog = null;
+      }
+      this.releaseWaiting();
       const nickname = String(payload.nickname || '').slice(0, 12);
       if (nickname) this.knownNames.set(payload.from, nickname);
       this.opponent = {
@@ -883,14 +970,17 @@ export class OnlineSession {
     if (!Number.isInteger(index) || index < 0 || index >= this.rounds) return false;
     if (!getRuleset('standard').hands.includes(hand)) return false;
     if (this.myPicks.has(index)) return false; // 二重送信を弾く
-    this.myPicks.set(index, hand);
-    this.client.broadcast(this.matchName, 'pick', {
+    /* 送れたときだけ記録する。送れなかった手を「出した」ことにすると、
+       相手を待ち続けてラウンドが進まなくなる（切断中の取りこぼし対策）。 */
+    const sent = this.client.broadcast(this.matchName, 'pick', {
       from: this.client.clientId,
       round: index,
       hand,
       timeout: Boolean(timeout),
       at: this.now(),
     });
+    if (!sent) return false;
+    this.myPicks.set(index, hand);
     this.tryResolve(index);
     return true;
   }
@@ -931,16 +1021,23 @@ export class OnlineSession {
 
   /* --- パーティーバトル（2〜4人・5回戦） --------------------------- */
 
-  openParty({ code, profile = {}, mode = 'create' } = {}) {
+  openParty({ code, profile = {}, mode = 'create', scope = 'domestic' } = {}) {
     this.reset();
     this.mode = 'party';
     this.rounds = PARTY_ROUNDS;
     this.profile = { ...profile };
     this.partyMode = mode;
-    const name = partyChannel(code);
+    /* 国内は無料・世界は PRO（Build 3）。世界を無料で開こうとしたら断る */
+    this.scope = scope === 'world' ? 'world' : 'domestic';
+    if (this.scope === 'world' && !profile?.pro) {
+      this.mode = null;
+      this.emit({ type: 'error', reason: 'pro-world' });
+      return null;
+    }
+    const name = partyChannel(code, { scope: this.scope, country: this.profile.countryCode });
     this.channel = name;
     this.partyOver = false;
-    this.openChannel(name, this.meta({ mode: 'party', joined: this.now() }), {
+    this.openChannel(name, this.meta({ mode: 'party', scope: this.scope, joined: this.now() }), {
       onStatus: (status) => {
         if (status === 'error') this.emit({ type: 'error', reason: 'party-join' });
       },
@@ -952,8 +1049,13 @@ export class OnlineSession {
 
   handlePartyPresence(members) {
     const mine = this.client.clientId;
-    const roster = members
+    const myCountry = String(this.profile.countryCode || 'JP').toUpperCase();
+    let roster = members
       .filter((member) => member && member.key)
+      /* 国内パーティーは、チャンネルを分けたうえで国籍でも二重に絞る
+         （古いアプリや手で入ってきた別の国の人を部屋に混ぜない） */
+      .filter((member) => this.scope === 'world'
+        || String(member.countryCode || 'JP').toUpperCase() === myCountry)
       .map((member) => {
         if (member.nickname) this.knownNames.set(member.key, String(member.nickname).slice(0, 12));
         return {
@@ -966,6 +1068,22 @@ export class OnlineSession {
       .sort((a, b) => String(a.key).localeCompare(String(b.key)));
     this.presence = roster;
     if (!roster.some((player) => player.key === mine)) return;
+
+    /* 定員は4人。あふれた人は試合に入れない（先に居た人を優先し、順番は全員で同じ） */
+    if (!this.started && roster.length > PARTY_MAX_PLAYERS) {
+      const allowed = roster.slice(0, PARTY_MAX_PLAYERS);
+      if (!allowed.some((player) => player.key === mine)) {
+        this.players = allowed;
+        this.emit({ type: 'party-full', players: allowed, max: PARTY_MAX_PLAYERS });
+        return;
+      }
+      roster = allowed;
+    }
+    /* 試合が始まったあとの途中参加は入れない（人数と手の数がずれないように） */
+    if (this.started && this.players.length) {
+      const playing = new Set(this.players.map((player) => player.key));
+      roster = roster.filter((player) => playing.has(player.key));
+    }
     const wasHost = this.host;
     this.host = roster[0].key === mine;
     if (this.started && wasHost !== this.host && this.partyRound >= 0 && !this.partyOver) {
@@ -986,6 +1104,7 @@ export class OnlineSession {
       type: 'party-lobby',
       isHost: this.host,
       players: roster,
+      scope: this.scope,
       max: PARTY_MAX_PLAYERS,
       min: PARTY_MIN_PLAYERS,
       started: Boolean(this.started),
@@ -1075,13 +1194,14 @@ export class OnlineSession {
     if (!getRuleset('standard').hands.includes(hand)) return false;
     const key = `${this.client.clientId}:${index}`;
     if (this.partyPicks.has(key)) return false;
-    this.partyPicks.set(key, hand);
-    this.client.broadcast(this.channel, 'party-pick', {
+    const sent = this.client.broadcast(this.channel, 'party-pick', {
       from: this.client.clientId,
       round: index,
       hand,
       timeout: Boolean(timeout),
     });
+    if (!sent) return false;
+    this.partyPicks.set(key, hand);
     this.emit({ type: 'party-pick', from: this.client.clientId, round: index, count: this.partyPickCount(index) });
     if (this.host) this.maybeReveal(index, { complete: false });
     return true;
@@ -1180,6 +1300,14 @@ export class OnlineSession {
 
   reset() {
     if (this.channel) this.client.unsubscribe(this.channel);
+    if (this.waitLinger) this.clear(this.waitLinger);
+    this.waitLinger = null;
+    if (this.waitingChannel) {
+      this.client.unsubscribe(this.waitingChannel);
+      this.waitingChannel = null;
+    }
+    if (this.matchWatchdog) this.clear(this.matchWatchdog);
+    this.matchWatchdog = null;
     if (this.waitTimer) this.clear(this.waitTimer);
     if (this.tickTimer) this.clear(this.tickTimer);
     if (this.partyTimer) this.clear(this.partyTimer);

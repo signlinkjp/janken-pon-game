@@ -73,6 +73,9 @@ import {
   totalPlayers,
   playerToRow,
   rowToPlayer,
+  MIN_WINRATE_MATCHES,
+  isRankedIn,
+  matchesToWinRateRank,
 } from '../src/ranking.js';
 
 import {
@@ -291,11 +294,19 @@ test('CPU は読み切らずにゆらぐ（同じ履歴でも外すことがあ�
   assert.ok(['rock', 'scissors', 'paper'].includes(off));
 });
 
-test('レベルごとのシンキングタイム（Build 1: 初級10秒〜最強2秒）', () => {
-  assert.equal(LEVELS.easy.thinkingTimeMs, 10000);
-  assert.equal(LEVELS.normal.thinkingTimeMs, 7000);
-  assert.equal(LEVELS.hard.thinkingTimeMs, 4000);
+test('レベルごとのシンキングタイム（Build 3: 初級7秒 / 中級5秒 / 上級3秒 / 最強2秒）', () => {
+  assert.equal(LEVELS.easy.thinkingTimeMs, 7000);
+  assert.equal(LEVELS.normal.thinkingTimeMs, 5000);
+  assert.equal(LEVELS.hard.thinkingTimeMs, 3000);
   assert.equal(LEVELS.master.thinkingTimeMs, 2000);
+  /* 画面のラベルも同じ数字を出す（.toFixed(1) で 7.0s / 5.0s / 3.0s / 2.0s） */
+  assert.deepEqual(
+    Object.values(LEVELS).map((level) => (level.thinkingTimeMs / 1000).toFixed(1)),
+    ['7.0', '5.0', '3.0', '2.0'],
+  );
+  assert.ok(LEVELS.easy.blurbJa.startsWith('7秒'));
+  assert.ok(LEVELS.normal.blurbJa.startsWith('5秒'));
+  assert.ok(LEVELS.hard.blurbJa.startsWith('3秒'));
 });
 
 test('初級・中級・上級は無料、最強（MASTER）だけ PRO', () => {
@@ -868,12 +879,30 @@ test('指標ごとに並び順が変わる（月別 / 勝率）', () => {
   assert.equal(byWin.filter((row) => row.matches > 0).every((row) => row.winRate >= 0.4 && row.winRate <= 0.7), true);
 });
 
-test('勝率1位は勝率100%のプレイヤー', () => {
-  const player = { nickname: 'ACE', countryCode: 'JP', points: 10, matches: 3, wins: 3, winRate: 1 };
+test('勝率1位は勝率100%のプレイヤー（5戦以上）', () => {
+  const player = { nickname: 'ACE', countryCode: 'JP', points: 10, matches: 6, wins: 6, winRate: 1 };
   const rows = leaderboard({ metric: 'winrate', player });
   const me = rows.find((row) => row.isYou);
   assert.equal(me.rank, 1);
+  assert.equal(me.qualified, true);
   assert.equal(formatMetric(me, 'winrate'), '100.0%');
+});
+
+test('勝率ランキングは5戦未満を圏外にする（1戦1勝の100%で1位にならない）', () => {
+  assert.equal(MIN_WINRATE_MATCHES, 5);
+  const player = { nickname: 'LUCKY', countryCode: 'JP', points: 10, matches: 3, wins: 3, winRate: 1 };
+  const rows = leaderboard({ metric: 'winrate', player });
+  const me = rows.find((row) => row.isYou);
+  assert.equal(me.rank, null, '5戦未満は順位を持たない');
+  assert.equal(me.qualified, false);
+  assert.equal(formatMetric(me, 'winrate'), '—', '圏外は数字を出さない');
+  assert.equal(rows[rows.length - 1].isYou, true, '圏外はリストの最後に回る');
+  assert.equal(rows[0].qualified, true, '1位は5戦以上の人');
+  assert.equal(matchesToWinRateRank(3), 2, 'あと2戦');
+  assert.equal(matchesToWinRateRank(5), 0);
+  assert.equal(isRankedIn({ matches: 4 }, 'winrate'), false);
+  assert.equal(isRankedIn({ matches: 5 }, 'winrate'), true);
+  assert.equal(isRankedIn({ matches: 0 }, 'total'), true, '勝率以外の指標は試合数を見ない');
 });
 
 test('試合がない自分の勝率は「—」表示', () => {
@@ -881,7 +910,7 @@ test('試合がない自分の勝率は「—」表示', () => {
   const rows = leaderboard({ metric: 'winrate', player });
   const me = rows.find((row) => row.isYou);
   assert.equal(formatMetric(me, 'winrate'), '—');
-  assert.equal(me.rank, rows.length, '勝率0は最下位');
+  assert.equal(me.rank, null, '試合0は圏外');
 });
 
 test('国内ランキングは同じ国だけになる', () => {
@@ -905,7 +934,9 @@ test('部門 × 指標を組み合わせても自分の行は1つ', () => {
       for (const scope of ['world', 'domestic']) {
         const rows = leaderboard({ division, metric, scope, player: { nickname: 'ME', countryCode: 'JP', points: 12 } });
         assert.equal(rows.filter((row) => row.isYou).length, 1, `${division}/${metric}/${scope}`);
-        assert.ok(rows.find((row) => row.isYou).rank >= 1);
+        const me = rows.find((row) => row.isYou);
+        if (metric === 'winrate') assert.equal(me.rank, null, '勝率は5戦未満なら圏外');
+        else assert.ok(me.rank >= 1);
       }
     }
   }

@@ -17,6 +17,7 @@
 import {
   HAND_META,
   HAND_SERIES,
+  HAND_COLORS,
   LEVELS,
   ROUND_OPTIONS,
   getRuleset,
@@ -67,6 +68,9 @@ import {
   pointsToNext,
   rankInDivision,
   totalInDivision,
+  MIN_WINRATE_MATCHES,
+  isRankedIn,
+  matchesToWinRateRank,
 } from './ranking.js';
 import {
   createProfileStore,
@@ -81,6 +85,8 @@ import {
   registerCountry,
   lockCountry,
   canChangeCountry,
+  handWinRate,
+  handResultOf,
   TEXT_SCALES,
 } from './storage.js';
 import { createAudioEngine } from './audio.js';
@@ -116,7 +122,6 @@ const STAMPS = Object.freeze([
   { id: 'thanks', label: 'ありがとう', icon: '1f64f' },
 ]);
 
-const HAND_COLORS = { rock: '#ffcf5c', scissors: '#4fe3ff', paper: '#a58bff' };
 
 const store = createProfileStore();
 const sound = createAudioEngine({ muted: false });
@@ -166,9 +171,10 @@ const app = {
     pendingRound: null,
     waitingTimer: 0,
   },
-  /* パーティー */
+  /* パーティー（Build 3: 国内=無料 / 世界=PRO） */
   party: {
     session: null,
+    scope: 'domestic',
     code: null,
     players: [],
     round: 0,
@@ -279,7 +285,24 @@ function stackHtml(counts, series) {
     .join('')}</div>`;
 }
 
-function handRowsHtml(counts, series) {
+/**
+ * 「その手を出したときの勝率」の1行（あいこを除いた勝負で数える）。
+ * データが無い（相手のプロフィールなど）ときは空文字。
+ */
+function handWinLine(results, hand) {
+  if (!results) return '';
+  const row = handResultOf(results, hand);
+  const rate = handWinRate(results, hand);
+  const decided = row.wins + row.losses;
+  if (rate == null) {
+    const label = decided === 0 && row.ties > 0 ? `あいこ${row.ties}` : 'まだ勝負なし';
+    return `<span class="handrow__win is-empty">勝率 —（${label}）</span>`;
+  }
+  const ties = row.ties ? `・あいこ${row.ties}` : '';
+  return `<span class="handrow__win">勝率 <b>${formatRate(rate, 0)}</b>（${row.wins}勝${row.losses}敗${ties}）</span>`;
+}
+
+function handRowsHtml(counts, series, { results = null } = {}) {
   const rates = handRates(counts, series);
   return rates
     .map(
@@ -289,6 +312,7 @@ function handRowsHtml(counts, series) {
         <span class="handrow__bar"><i style="width:${(entry.rate * 100).toFixed(1)}%;background:${HAND_COLORS[entry.hand] ?? '#8e9ad0'}"></i></span>
         <b>${formatRate(entry.rate, 0)}</b>
         <em>${entry.count}回</em>
+        ${handWinLine(results, entry.hand)}
       </div>`,
     )
     .join('');
@@ -422,8 +446,7 @@ function renderModes() {
   $$('#mode-cards .mode-card').forEach((card) => {
     const mode = card.dataset.mode;
     card.classList.toggle('is-active', app.mode === mode);
-    const locked = mode === 'party' && !isPro();
-    card.classList.toggle('is-locked', locked);
+    card.classList.remove('is-locked');
     card.setAttribute('aria-pressed', String(app.mode === mode));
   });
   $('#panel-practice').hidden = app.mode !== 'practice';
@@ -447,17 +470,12 @@ function renderCta() {
     sub.textContent = `${scope} ・ ${app.online.rounds}${T('home.rounds')} ・ 5.0s`;
   } else {
     label.textContent = T('party.create');
-    sub.textContent = `${PARTY_MIN_PLAYERS}–${PARTY_MAX_PLAYERS} ・ ${PARTY_ROUNDS} ・ 5.0s`;
+    sub.textContent = `${T(`online.${app.party.scope}`)} ・ ${PARTY_MIN_PLAYERS}–${PARTY_MAX_PLAYERS} ・ ${PARTY_ROUNDS}回戦 ・ 5.0s`;
   }
 }
 
 function setMode(mode) {
-  if (mode === 'party' && !isPro()) {
-    sound.play('locked');
-    openSheet('pro');
-    toast(T('online.proWorld'));
-    return;
-  }
+  /* Build 3: パーティーは国内（同じ国籍）なら無料。世界だけが PRO */
   app.mode = mode;
   sound.play('select');
   renderHome();
@@ -995,6 +1013,7 @@ function beginRound() {
 
   resetArena();
   renderPips();
+  renderLockButton();
   startTimer(app.turnMs);
 }
 
@@ -1052,7 +1071,30 @@ function selectHand(hand) {
     button.setAttribute('aria-pressed', String(button.dataset.hand === hand));
   });
   $('#timer-hint').textContent = T('play.selected');
+  renderLockButton();
   sound.play('click');
+}
+
+/**
+ * 「これで決定（ロック）」ボタン（Build 3）。
+ * 手を選んでいるあいだだけ出し、押した瞬間に確定して「ぽん！」へ進む。
+ * 押さなければ、従来どおり締切まで何度でも選び直せる。
+ */
+function renderLockButton() {
+  const playButton = $('#btn-lock');
+  const partyButton = $('#btn-party-lock');
+  const playHand = app.view === 'play' && app.phase === 'thinking' ? app.selectedHand : null;
+  const partyHand = app.view === 'party' && app.party.phase === 'thinking' ? app.party.selected : null;
+  if (playButton) {
+    playButton.hidden = !playHand;
+    const label = $('#lock-hand');
+    if (label) label.textContent = playHand ? HAND_META[playHand].labelJa : '';
+  }
+  if (partyButton) {
+    partyButton.hidden = !partyHand;
+    const label = $('#party-lock-hand');
+    if (label) label.textContent = partyHand ? HAND_META[partyHand].labelJa : '';
+  }
 }
 
 /** かけ声の最後の拍で、自分と相手の手を同時に開く */
@@ -1080,6 +1122,7 @@ async function commitRound({ timedOut = false } = {}) {
   app.phase = 'chant';
   app.pickedHand = hand;
   app.timedOut = isTimeout;
+  renderLockButton();
   app.consecutiveTimeouts = isTimeout ? app.consecutiveTimeouts + 1 : 0;
   $('#stamp-pop').hidden = true;
 
@@ -1118,11 +1161,16 @@ async function commitRound({ timedOut = false } = {}) {
 
 /** かけ声 → 最後の拍で両方の手が開く → 勝敗 */
 async function chantAndReveal(cpuHand, token = app.matchToken) {
+  if (!HAND_META[cpuHand]) return;
+  /* 開く手をここで固定する。相手の手が締切と同時に届くと、revealRound が
+     読む app.roundCpu はまだ空（pending として持っただけ）なので、
+     引数で渡さないと「cpu hand null」で止まる（Build 3 で修正）。 */
+  app.roundCpu = cpuHand;
   app.phase = 'chant';
   await runChant({ onFinal: () => openPods(cpuHand) });
   if (token !== app.matchToken) return;
   if (app.phase === 'idle' || !app.match) return;
-  await revealRound();
+  await revealRound(cpuHand);
 }
 
 async function runChant({ onFinal = null } = {}) {
@@ -1142,11 +1190,11 @@ async function runChant({ onFinal = null } = {}) {
 }
 
 /** 1ラウンドを決める（手はもう開いている） */
-async function revealRound() {
+async function revealRound(cpuHand = app.roundCpu) {
   const token = app.matchToken;
   if (!app.match || app.match.finished) return;
+  if (!HAND_META[cpuHand] || !HAND_META[app.pickedHand]) return;
   app.phase = 'reveal';
-  const cpuHand = app.roundCpu;
   const next = playRound(app.match, {
     playerHand: app.pickedHand,
     cpuHand,
@@ -1370,6 +1418,12 @@ function handleOnlineEvent(event) {
     case 'party-pick':
       if (app.party.phase === 'thinking' && event.from !== selfKey()) markPartyPicked(event.from);
       break;
+    case 'party-full':
+      toast(T('party.full'), 2400);
+      app.online.session?.leave();
+      app.party.phase = 'lobby';
+      openSheet('party');
+      break;
     case 'party-round':
       applyPartyRound(event);
       break;
@@ -1389,16 +1443,54 @@ function handleOnlineEvent(event) {
  * ------------------------------------------------------------------ */
 
 function openParty() {
-  if (!isPro()) {
-    openSheet('pro');
-    toast(T('online.proWorld'));
-    return;
-  }
   if (!online.onlineConfigured()) {
     toast(T('toast.offline'), 2400);
     return;
   }
+  /* 世界を選んだまま PRO が切れていたら、国内に戻す（無料でも遊べる） */
+  if (app.party.scope === 'world' && !isPro()) app.party.scope = 'domestic';
   openSheet('party');
+  renderPartyScope();
+  createPartyRoom();
+}
+
+/** パーティーの範囲（国内 = 同じ国籍・無料 / 世界 = PRO） */
+function renderPartyScope() {
+  const wrap = $('#party-scope-seg');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  /* 無料から遊べる国内を先に、PRO の世界を後ろに（既定は国内） */
+  const scopes = [...RANK_SCOPES].sort((a, b) => (a.id === 'domestic' ? -1 : 1) - (b.id === 'domestic' ? -1 : 1));
+  for (const scope of scopes) {
+    const locked = scope.id === 'world' && !isPro();
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.scope = scope.id;
+    button.innerHTML = `${scope.id === 'world' ? '🌏' : '🏠'} ${T(`online.${scope.id}`)}${locked ? ' <em>PRO</em>' : ''}`;
+    button.className = `${app.party.scope === scope.id ? 'is-active' : ''}${locked ? ' is-locked' : ''}`;
+    button.setAttribute('aria-pressed', String(app.party.scope === scope.id));
+    button.addEventListener('click', () => setPartyScope(scope.id));
+    wrap.appendChild(button);
+  }
+  const note = $('#party-scope-note');
+  if (note) note.textContent = T('party.scopeNote');
+}
+
+function setPartyScope(scope) {
+  const next = scope === 'world' ? 'world' : 'domestic';
+  if (next === app.party.scope) return;
+  if (next === 'world' && !isPro()) {
+    sound.play('locked');
+    openSheet('pro');
+    toast(T('online.proWorld'));
+    return;
+  }
+  sound.play('click');
+  app.party.scope = next;
+  /* 部屋は範囲ごとに別なので、切り替えたら新しい合言葉で入り直す */
+  app.party.code = null;
+  app.party.players = [];
+  renderPartyScope();
   createPartyRoom();
 }
 
@@ -1413,9 +1505,11 @@ function createPartyRoom() {
   app.party.players = [];
   app.party.phase = 'lobby';
   app.party.isHost = false;
-  $('#party-code-value').textContent = code;
+  const value = $('#party-code-value');
+  if (value) value.textContent = code;
+  renderPartyScope();
   renderPartyLobby(null);
-  session.openParty({ code, profile: app.profile });
+  session.openParty({ code, profile: app.profile, scope: app.party.scope });
 }
 
 function joinPartyRoom() {
@@ -1432,13 +1526,16 @@ function joinPartyRoom() {
   app.party.code = code;
   app.party.phase = 'lobby';
   $('#party-code-value').textContent = code;
+  renderPartyScope();
   renderPartyLobby(null);
-  session.openParty({ code, profile: app.profile, mode: 'join' });
+  session.openParty({ code, profile: app.profile, mode: 'join', scope: app.party.scope });
 }
 
 function updatePartyLobby(event) {
   app.party.isHost = event.isHost;
   app.party.players = event.players;
+  if (event.scope) app.party.scope = event.scope;
+  renderPartyScope();
   if (app.party.code) $('#party-code-value').textContent = app.party.code;
   renderPartyLobby(event);
   if (event.started && app.party.phase === 'lobby' && app.view !== 'party') startPartyMatch();
@@ -1548,6 +1645,7 @@ function beginPartyRound() {
   });
   $$('#party-handbar .handbtn').forEach((b) => b.classList.remove('is-picked', 'is-dim'));
   $('#party-handbar').classList.remove('is-locked');
+  renderLockButton();
   renderPartyPips();
   startPartyTimer(PARTY_TURN_MS);
 }
@@ -1609,6 +1707,7 @@ function selectPartyHand(hand) {
     button.classList.remove('is-dim');
   });
   $('#party-timer-hint').textContent = T('play.selected');
+  renderLockButton();
   sound.play('click');
 }
 
@@ -1626,6 +1725,7 @@ function commitPartyHand({ timedOut = false } = {}) {
   app.party.hands[selfKey()] = hand;
   app.party.picked = true;
   stopPartyTimer();
+  renderLockButton();
   session.partyPick(app.party.round, hand, { timeout: isTimeout });
   $$('#party-handbar .handbtn').forEach((button) => {
     button.classList.toggle('is-picked', button.dataset.hand === hand);
@@ -1634,6 +1734,8 @@ function commitPartyHand({ timedOut = false } = {}) {
   $('#party-handbar').classList.add('is-locked');
   $('#party-timer-fill').style.width = '0%';
   $('#party-timer-num').textContent = '0.0';
+  /* 決定したら「相手を待っています」（全員そろうとホストが開く） */
+  $('#party-timer-hint').textContent = isTimeout ? T('play.timeup') : T('play.waiting');
   const pod = $(`#party-grid .ppod.is-you`);
   if (pod) {
     pod.classList.add('is-picked');
@@ -1852,6 +1954,8 @@ function finishMatch() {
     rank: ranked ? app.rankAfter : null,
     rounds: app.match.rounds,
     hands: app.matchHands,
+    /* 手ごとの勝率（Build 3）。ラウンドごとの手と勝敗を渡す（あいこも数える） */
+    handRounds: app.match.history.map((round) => ({ hand: round.playerHand, outcome: round.outcome })),
     ranked,
     scope,
   });
@@ -2044,6 +2148,20 @@ function setRankingView({ division, metric, scope } = {}) {
   renderRanking();
 }
 
+/**
+ * ランキング行の3色バー（✊✌️✋）が何を表すかの凡例。
+ * バーの色は HAND_COLORS ひとつを元にしているので、行の色と必ず一致する。
+ */
+function renderRankLegend(locked = false) {
+  const wrap = $('#rank-legend');
+  if (!wrap) return;
+  wrap.hidden = Boolean(locked);
+  if (locked) return;
+  wrap.innerHTML = `<span class="rank-legend__label">手の率</span>${HAND_SERIES.map(
+    (hand) => `<span class="rank-legend__item"><i style="background:${HAND_COLORS[hand]}"></i>${HAND_META[hand].labelJa}</span>`,
+  ).join('')}`;
+}
+
 function renderRanking() {
   const divisionId = app.rankView.division;
   const metricId = app.rankView.metric;
@@ -2062,29 +2180,56 @@ function renderRanking() {
   const rows = leaderboard({ division: divisionId, metric: metricId, scope: scopeId, player, peers });
   const me = rows.find((row) => row.isYou);
   const country = countryByCode(me.countryCode);
+  /* 勝率ランキングは 5戦以上だけが対象（Build 3）。圏外なら「あと何戦」で案内する */
+  const meRanked = isRankedIn(me, metricId);
+  const needMatches = matchesToWinRateRank(me.matches);
+  const rankedCount = rows.filter((row) => row.qualified !== false).length;
 
   $('#ranking-title').textContent = `${scope.longLabel}`;
-  $('#ranking-caption').textContent = `${meta.label} ・ ${T(`rank.${metricId}`)} ・ ${rows.length}人`;
+  $('#ranking-caption').textContent = `${meta.label} ・ ${T(`rank.${metricId}`)} ・ ${rankedCount}人`;
 
   renderAxisTabs();
+  renderRankLegend(locked);
 
   $('#rank-me').innerHTML = `
-    <div class="rank-me__rank"><b>${me.rank}</b><span>位</span></div>
+    <div class="rank-me__rank">${meRanked ? `<b>${me.rank}</b><span>位</span>` : '<b class="is-outside">—</b><span>圏外</span>'}</div>
     <div class="rank-me__flag"><img src="${country.flag}" alt="${countryName(country)}" /></div>
     <div class="rank-me__name">${escapeHtml(me.nickname)}<span class="rank-row__you">YOU</span>${
-      me.rank === 1 ? '<span class="rank-row__crown"><img src="assets/icons/1f451.svg" alt="" />CHAMPION</span>' : ''
+      meRanked && me.rank === 1 ? '<span class="rank-row__crown"><img src="assets/icons/1f451.svg" alt="" />CHAMPION</span>' : ''
     }<span class="rank-me__mini">${miniRateHtml(me.handRates)}<em>手の率</em></span></div>
-    <div class="rank-me__pts">${formatMetric(me, metricId)}${metricId === 'winrate' ? '' : `<span style="font-size:9px;color:var(--ink-faint)"> ${metric.unit}</span>`}</div>
+    <div class="rank-me__pts">${
+      meRanked
+        ? `${formatMetric(me, metricId)}${metricId === 'winrate' ? '' : `<span style="font-size:9px;color:var(--ink-faint)"> ${metric.unit}</span>`}`
+        : `<em class="rank-me__need">あと${needMatches}戦</em>`
+    }</div>
   `;
+
+  const note = $('#rank-note');
+  if (note) {
+    if (metricId === 'winrate' && !locked) {
+      note.hidden = false;
+      note.textContent = `※勝率ランキングは${MIN_WINRATE_MATCHES}戦以上が対象です。${
+        meRanked ? '' : `あなたは${me.matches}戦 — あと${needMatches}戦でランクイン。`}`;
+    } else {
+      note.hidden = true;
+    }
+  }
 
   const championCount = standingList().filter((standing) => standing.champion).length;
   const titles = titlesHtml();
-  $('#titles-line').innerHTML =
+  const outsideChip = meRanked
+    ? ''
+    : `<span class="title-chip title-chip--pending">勝率ランキングは${MIN_WINRATE_MATCHES}戦から（あと${needMatches}戦）</span>`;
+  const baseTitle =
     titles ||
-    (me.rank === 1
-      ? '<span class="title-chip"><img src="assets/icons/1f451.svg" alt="" />このランキングの1位</span>'
-      : `<span class="title-chip title-chip--pending">${meta.trophy}まで あと${Math.max(1, me.rank - 1)}人</span>`) +
-      (championCount === 1 ? '<span class="title-chip title-chip--pending">2冠まで あと1部門</span>' : '');
+    (!meRanked
+      ? ''
+      : me.rank === 1
+        ? '<span class="title-chip"><img src="assets/icons/1f451.svg" alt="" />このランキングの1位</span>'
+        : `<span class="title-chip title-chip--pending">${meta.trophy}まで あと${Math.max(1, me.rank - 1)}人</span>`);
+  $('#titles-line').innerHTML =
+    baseTitle + outsideChip +
+    (championCount === 1 ? '<span class="title-chip title-chip--pending">2冠まで あと1部門</span>' : '');
 
   const top = rows.slice(0, 3);
   const windowRows = leaderboardWindow(rows, { radius: 3 });
@@ -2112,10 +2257,13 @@ function renderRanking() {
 function rankRowHtml(row, metricId, unit) {
   const country = countryByCode(row.countryCode);
   const topClass = row.rank === 1 ? ' is-top1' : row.rank === 2 ? ' is-top2' : row.rank === 3 ? ' is-top3' : '';
-  const secondary = metricId === 'winrate' ? `${countryName(country)} ・ ${row.matches}試合` : countryName(country);
+  const outside = row.qualified === false;
+  const secondary = metricId === 'winrate'
+    ? `${countryName(country)} ・ ${row.matches}試合${outside ? `<span class="rank-row__outside">5戦未満</span>` : ''}`
+    : countryName(country);
   const rates = isPro() ? miniRateHtml(row.handRates) : '';
-  return `<div class="rank-row${row.isYou ? ' is-you' : ''}${row.pro ? ' is-pro' : ''}" data-row-id="${row.id}" role="button" tabindex="0">
-    <span class="rank-row__no${topClass}">${row.rank}</span>
+  return `<div class="rank-row${row.isYou ? ' is-you' : ''}${row.pro ? ' is-pro' : ''}${outside ? ' is-outside' : ''}" data-row-id="${row.id}" role="button" tabindex="0">
+    <span class="rank-row__no${topClass}">${outside ? '—' : row.rank}</span>
     <span class="rank-row__flag"><img src="${country.flag}" alt="${countryName(country)}" /></span>
     <span class="rank-row__id">
       <span class="rank-row__name">${escapeHtml(row.nickname)}${row.isYou ? '<span class="rank-row__you">YOU</span>' : ''}</span>
@@ -2157,12 +2305,14 @@ function openPlayer(row) {
           <div class="handrows">${handRowsHtml(
             { rock: Math.round(rates.rock * 100), scissors: Math.round(rates.scissors * 100), paper: Math.round(rates.paper * 100) },
             HAND_SERIES,
+            { results: row.isYou ? app.profile.handResults ?? {} : null },
           )}</div>
         </div>`
       : `<div class="pro-lock-note"><img src="assets/icons/1f512.svg" alt="" /><span>相手の手の率（✊✌️✋%）は PRO の機能です。</span></div>`}
     <p class="sheet__note">${row.isYou
-      ? 'あなたの手の率は、この端末で出した手の回数から計算しています。'
-      : 'ランキングの相手は、同じチャンネルに接続しているプレイヤーです（接続が無いときはローカルのライバル）。'}</p>
+      ? 'あなたの手の率は、この端末で出した手の回数から計算しています。勝率は、あいこを除いて数えます。'
+      : 'ランキングの相手は、同じチャンネルに接続しているプレイヤーです（接続が無いときはローカルのライバル）。'}${
+      row.qualified === false ? ` 勝率ランキングは${MIN_WINRATE_MATCHES}戦以上が対象です。` : ''}</p>
   `;
   openSheet('player', { nested: true });
 }
@@ -2175,7 +2325,7 @@ function renderStats() {
   const counts = app.profile.handCounts;
   const totalHands = HAND_SERIES.reduce((sum, hand) => sum + (counts[hand] ?? 0), 0);
   $('#stats-hands-count').textContent = `${totalHands} 手`;
-  $('#stats-hands').innerHTML = handRowsHtml(counts, HAND_SERIES);
+  $('#stats-hands').innerHTML = handRowsHtml(counts, HAND_SERIES, { results: app.profile.handResults ?? {} });
 
   const practice = app.profile.practice;
   const party = app.profile.party ?? { matches: 0, wins: 0, points: 0 };
@@ -2386,11 +2536,14 @@ function setPro(on) {
     if (LEVELS[next.levelId]?.pro) next = { ...next, levelId: 'normal' };
     if (app.online.scope === 'world') app.online.scope = 'domestic';
     if (app.rankView.scope === 'world') app.rankView.scope = 'domestic';
-    if (app.mode === 'party') app.mode = 'practice';
+    /* 世界パーティーを開いていたら、国内に戻す（無料でも続けられる） */
+    if (app.party.scope === 'world') app.party.scope = 'domestic';
   }
   persist(next);
   renderHome();
   renderProSheet();
+  /* パーティーのシートが開いていれば、国内/世界のボタンも描き直す */
+  if ($('#sheet-party') && $('#sheet-party').hidden === false) renderPartyScope();
   if ($('#sheet-ranking').hidden === false) renderRanking();
   sound.play(on ? 'proUnlock' : 'click');
   toast(on ? T('toast.proOn') : T('toast.proOff'));
@@ -2658,6 +2811,19 @@ function bindEvents() {
     toast(soundOn ? 'サウンド ON' : 'サウンド OFF', 1200);
   });
 
+  /* これで決定（ロック）。押した瞬間に確定し、CPU はすぐ「ぽん！」、
+     通信は「相手を待っています」になる（相手も決めたら即オープン） */
+  $('#btn-lock')?.addEventListener('click', () => {
+    if (app.phase !== 'thinking' || !app.selectedHand) return;
+    sound.play('select');
+    commitRound();
+  });
+  $('#btn-party-lock')?.addEventListener('click', () => {
+    if (app.party.phase !== 'thinking' || !app.party.selected) return;
+    sound.play('select');
+    commitPartyHand();
+  });
+
   $('#btn-bell').addEventListener('click', toggleStampsMuted);
   $('#btn-stamp').addEventListener('click', () => {
     const pop = $('#stamp-pop');
@@ -2775,11 +2941,21 @@ function bindEvents() {
     sound.unlock();
   });
 
+  /* 設定の「音をテスト」— その場で鳴らして、Audio Session の状態も見せる */
+  $('#set-sound-test')?.addEventListener('click', () => {
+    sound.unlock();
+    sound.play('fanfare');
+    const out = $('#set-sound-test-state');
+    const running = sound.state === 'running';
+    if (out) out.textContent = running ? `▶ ${sound.sessionType ?? 'web'}` : `× ${sound.state}`;
+    if (!running) toast('音を出せませんでした（端末の消音・音量を確かめてください）', 2200);
+  });
+
   /* iOS で戻ってきたとき、ソケットと音を起こし直す */
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     if (app.online.client) app.online.client.wake();
-    sound.unlock();
+    sound.wake();
   });
 }
 
@@ -2823,7 +2999,7 @@ function boot() {
 
   window.JANKeNPoN = {
     version: '1.0.0',
-    build: 2,
+    build: 3,
     get profile() {
       return app.profile;
     },
@@ -2842,6 +3018,16 @@ function boot() {
     setTextScale: changeTextScale,
     toggleChantSide,
     confirmCountry,
+    get audio() {
+      return {
+        state: sound.state,
+        sessionType: sound.sessionType,
+        unlocked: sound.unlocked,
+        silenceActive: sound.silenceActive,
+        gain: sound.gain,
+      };
+    },
+    unlockAudio: () => sound.unlock(),
     get match() {
       return app.match;
     },
@@ -2875,6 +3061,19 @@ function boot() {
         round: app.party.round,
         phase: app.party.phase,
       };
+    },
+    /** テスト用: 「これで決定」を押したのと同じ */
+    lock() {
+      if (app.view === 'party') {
+        if (app.party.phase === 'thinking' && app.party.selected) commitPartyHand();
+        return app.party.phase;
+      }
+      if (app.phase === 'thinking' && app.selectedHand) commitRound();
+      return app.phase;
+    },
+    get lockVisible() {
+      const button = app.view === 'party' ? $('#btn-party-lock') : $('#btn-lock');
+      return Boolean(button && !button.hidden);
     },
     summary: () => (app.match ? matchSummary(app.match) : null),
     startMatch,

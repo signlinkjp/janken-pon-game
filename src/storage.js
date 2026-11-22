@@ -12,7 +12,7 @@
  */
 
 export const STORAGE_KEY = 'janken-pon.profile.v1';
-export const PROFILE_VERSION = 5;
+export const PROFILE_VERSION = 6;
 
 export function monthKey(at = Date.now()) {
   const date = new Date(at);
@@ -81,6 +81,14 @@ export function defaultHandCounts() {
   return { rock: 0, scissors: 0, paper: 0, elephant: 0, human: 0, ant: 0, well: 0 };
 }
 
+/**
+ * 手ごとの勝敗（Build 3）。「その手を出したときの勝率」の元データ。
+ * 手の回数（handCounts）はパーティーも含むが、こちらは1対1の勝負だけを数える。
+ */
+export function defaultHandResults() {
+  return {};
+}
+
 export function defaultProfile(at = Date.now()) {
   return {
     version: PROFILE_VERSION,
@@ -94,6 +102,7 @@ export function defaultProfile(at = Date.now()) {
        world は国内（同じ国籍どうし）のランキング用の記録。 */
     global: { '5': defaultDivision(at), '3': defaultDivision(at) },
     handCounts: defaultHandCounts(),
+    handResults: defaultHandResults(),
     pro: false,
     levelId: 'normal',
     rulesetId: 'standard',
@@ -181,6 +190,20 @@ function sanitizeHandCounts(raw, fallback = defaultHandCounts()) {
   return out;
 }
 
+function sanitizeHandResults(raw) {
+  if (!raw || typeof raw !== 'object') return defaultHandResults();
+  const out = {};
+  for (const [hand, row] of Object.entries(raw)) {
+    if (!/^[a-z]+$/.test(hand) || !row || typeof row !== 'object') continue;
+    out[hand] = {
+      wins: safeInt(row.wins, 0),
+      losses: safeInt(row.losses, 0),
+      ties: safeInt(row.ties, 0),
+    };
+  }
+  return out;
+}
+
 function sanitizeParty(raw, fallback = defaultParty()) {
   if (!raw || typeof raw !== 'object') return { ...fallback };
   return {
@@ -240,6 +263,7 @@ export function sanitizeProfile(raw, base = defaultProfile()) {
     world,
     global,
     handCounts: sanitizeHandCounts(raw.handCounts),
+    handResults: sanitizeHandResults(raw.handResults),
     pro: Boolean(raw.pro),
     levelId: typeof raw.levelId === 'string' ? raw.levelId : base.levelId,
     rulesetId: typeof raw.rulesetId === 'string' ? raw.rulesetId : base.rulesetId,
@@ -357,6 +381,30 @@ export function practiceWinRate(practice) {
   return practice.wins / practice.matches;
 }
 
+/**
+ * その手を出したときの勝率（0〜1）。あいこを除いた勝負で数える（直感的な数字）。
+ * まだ勝負がついていない手（あいこだけ・未使用）は null。
+ */
+export function handWinRate(handResults, hand) {
+  const row = handResults?.[hand];
+  if (!row) return null;
+  const wins = safeInt(row.wins, 0);
+  const losses = safeInt(row.losses, 0);
+  const decided = wins + losses;
+  if (decided <= 0) return null;
+  return wins / decided;
+}
+
+/** 手ごとの勝敗の行（無ければ 0/0/0 の空の行） */
+export function handResultOf(handResults, hand) {
+  const row = handResults?.[hand];
+  return {
+    wins: safeInt(row?.wins, 0),
+    losses: safeInt(row?.losses, 0),
+    ties: safeInt(row?.ties, 0),
+  };
+}
+
 /* ------------------------------------------------------------------ *
  * 更新
  * ------------------------------------------------------------------ */
@@ -377,6 +425,7 @@ export function applyMatch(
     rank = null,
     rounds = profile.rounds,
     hands = [],
+    handRounds = [],
     ranked = true,
     scope = 'domestic',
     at = Date.now(),
@@ -403,6 +452,20 @@ export function applyMatch(
   for (const hand of hands) {
     if (handCounts[hand] === undefined) handCounts[hand] = 0;
     handCounts[hand] += 1;
+  }
+
+  /* その手ごとの勝率（Build 3）。1対1の勝負だけを数える（パーティーは入らない） */
+  const handResults = { ...(profile.handResults ?? {}) };
+  for (const round of Array.isArray(handRounds) ? handRounds : []) {
+    const hand = round?.hand;
+    const outcome = round?.outcome;
+    if (typeof hand !== 'string' || !hand) continue;
+    if (outcome !== 'win' && outcome !== 'lose' && outcome !== 'tie') continue;
+    const row = { wins: 0, losses: 0, ties: 0, ...(handResults[hand] ?? {}) };
+    if (outcome === 'win') row.wins += 1;
+    else if (outcome === 'lose') row.losses += 1;
+    else row.ties += 1;
+    handResults[hand] = row;
   }
 
   const month = monthKey(at);
@@ -445,6 +508,7 @@ export function applyMatch(
     ...profile,
     practice,
     handCounts,
+    handResults,
     [bucket]: { ...(profile[bucket] ?? {}), [divisionId]: nextEntry },
     lastPlayedAt: iso,
     createdAt: profile.createdAt ?? iso,

@@ -233,6 +233,7 @@ test('サウンド: OFF にするとその場で無音になり、ON で戻る',
 
   engine.unlock();
   assert.equal(engine.state, 'running', 'ユーザー操作で AudioContext が起きる');
+  assert.equal(engine.gain, 1, 'ON のときはゲートが開いている');
 
   engine.play('click');
   const afterOn = stats.started;
@@ -242,13 +243,14 @@ test('サウンド: OFF にするとその場で無音になり、ON で戻る',
   assert.equal(engine.muted, true);
   engine.play('win');
   assert.equal(stats.started, afterOn, 'OFF のときは新しい音を作らない');
-  assert.ok(stats.master.value <= 0.001, 'マスターが 0 に絞られる（鳴っている途中の音も消える）');
+  assert.equal(engine.gain, 0, 'ゲートが 0 になる（鳴っている途中の音も消える）');
 
   engine.setMuted(false);
   assert.equal(engine.muted, false);
   engine.play('click');
   assert.ok(stats.started > afterOn, 'ON に戻すと鳴る');
-  assert.ok(stats.master.value > 0.1, 'マスターが元の音量に戻る');
+  assert.equal(engine.gain, 1, 'ゲートが元に戻る（0.0001 のまま戻らない作り）');
+  assert.ok(engine.volume > 0.1, 'マスターの音量そのものは動かない');
 });
 
 test('サウンド: 起動時ミュートでも、あとから ON にできる', () => {
@@ -256,10 +258,13 @@ test('サウンド: 起動時ミュートでも、あとから ON にできる',
   const engine = createAudioEngine({ AudioContextClass: FakeAudioContext, muted: true });
   engine.unlock();
   engine.play('click');
-  assert.equal(stats.started, 0, '起動時に OFF なら鳴らない');
+  /* unlock() の無音バッファは鳴らすが、聞こえる音（オシレーター）は作らない */
+  assert.equal(stats.oscillators, 0, '起動時に OFF なら鳴らない');
+  assert.equal(engine.gain, 0, 'ゲートは閉じたまま');
   engine.setMuted(false);
   engine.play('click');
-  assert.ok(stats.started > 0, 'ON にすると鳴る');
+  assert.ok(stats.oscillators > 0, 'ON にすると鳴る');
+  assert.equal(engine.gain, 1, 'ゲートが開く');
 });
 
 test('サウンド: 音が出せない環境でも落ちない', () => {
@@ -284,8 +289,8 @@ test('サウンド: 画面のボタンと設定の行が同じスイッチを見
   assert.ok(main.includes("$('#btn-sound')"));
   assert.ok(main.includes("$('#set-sound')"));
   assert.ok(/sound\.setMuted\(!soundOn\)/.test(main));
-  /* 戻ってきたとき（visibilitychange）にも起こし直す */
-  assert.ok(/visibilitychange[\s\S]{0,220}sound\.unlock\(\)/.test(main));
+  /* 戻ってきたとき（visibilitychange）は wake() で起こし直す（Build 3） */
+  assert.ok(/visibilitychange[\s\S]{0,240}sound\.wake\(\)/.test(main));
 });
 
 /* ------------------------------------------------------------------ *\
@@ -519,16 +524,16 @@ test('価格: フォールバックは ¥300（StoreKit の実価格が優先）
  * 10. ビルド番号とワークフロー
  * ------------------------------------------------------------------ */
 
-test('ビルド: iOS プロジェクトもアプリも Build 2', () => {
+test('ビルド: iOS プロジェクトもアプリも同じ Build 番号（Build 3）', () => {
   const pbx = read('ios/App/App.xcodeproj/project.pbxproj');
   const numbers = [...pbx.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map((m) => Number(m[1]));
   assert.equal(numbers.length, 2, 'Debug / Release の2箇所');
-  assert.deepEqual(numbers, [2, 2]);
+  assert.deepEqual(numbers, [3, 3], 'Build 3');
   assert.ok(pbx.includes('MARKETING_VERSION = 1.0.0;'));
   const main = read('src/main.js');
-  assert.ok(/version: '1\.0\.0',\s*build: 2,/.test(main));
+  assert.ok(/version: '1\.0\.0',\s*build: 3,/.test(main), 'アプリ側の build も 3');
   const html = read('index.html');
-  assert.ok(html.includes('(Build 2)'));
+  assert.ok(html.includes('(Build 3)'), '設定の版表示も Build 3');
 });
 
 test('ワークフロー: docs/ios-testflight-build2.yml がビルド番号を自動で読む', () => {

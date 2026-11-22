@@ -121,6 +121,25 @@ export function divisionMeta(divisionId = '5') {
   return DIVISIONS.find((division) => division.id === String(divisionId)) ?? DIVISIONS[0];
 }
 
+/**
+ * 勝率ランキングの最低試合数（Build 3）。
+ * 1戦1勝の 100% が1位に来ないように、5戦以上だけを対象にする。
+ * 5戦未満の人は「圏外」と「あと何戦」で案内する。
+ */
+export const MIN_WINRATE_MATCHES = 5;
+
+/** その指標で順位を持てるか（勝率だけ試合数が要る） */
+export function isRankedIn(row, metricId = 'total') {
+  if (!row) return false;
+  if (metricId !== 'winrate') return true;
+  return Number(row.matches ?? 0) >= MIN_WINRATE_MATCHES;
+}
+
+/** 勝率ランキングまで、あと何戦か（対象なら 0） */
+export function matchesToWinRateRank(matches = 0) {
+  return Math.max(0, MIN_WINRATE_MATCHES - Number(matches || 0));
+}
+
 export const RANK_METRICS = Object.freeze([
   { id: 'total', label: '総合', short: '総合', unit: 'pt', kind: 'points' },
   { id: 'monthly', label: '月別', short: '月別', unit: 'pt', kind: 'points' },
@@ -251,6 +270,8 @@ export function formatMetric(row, metricId = 'total') {
   if (!row) return '—';
   if (metricId === 'winrate') {
     if (!row.matches) return '—';
+    /* 順位の対象になるのは 5戦以上だけ（1戦1勝の100%で1位になるのを防ぐ） */
+    if (!isRankedIn(row, 'winrate')) return '—';
     return `${(Number(row.winRate ?? 0) * 100).toFixed(1)}%`;
   }
   return formatPoints(metricValue(row, metricId));
@@ -291,13 +312,19 @@ export function leaderboard({
     pro: Boolean(player.pro),
   };
 
-  const rows = [...rivals.map((rival) => ({ ...rival, isYou: false })), you].sort(
-    (a, b) => metricValue(b, metric) - metricValue(a, metric) || Number(b.isYou) - Number(a.isYou),
-  );
+  /* 勝率だけは 5戦未満を圏外（順位なし）にして、リストの最後に回す */
+  const rows = [...rivals.map((rival) => ({ ...rival, isYou: false })), you]
+    .map((row) => ({ ...row, qualified: isRankedIn(row, metric) }))
+    .sort((a, b) => {
+      if (a.qualified !== b.qualified) return a.qualified ? -1 : 1;
+      return metricValue(b, metric) - metricValue(a, metric) || Number(b.isYou) - Number(a.isYou);
+    });
 
   return rows.map((row) => ({
     ...row,
-    rank: 1 + rows.filter((other) => metricValue(other, metric) > metricValue(row, metric)).length,
+    rank: row.qualified
+      ? 1 + rows.filter((other) => other.qualified && metricValue(other, metric) > metricValue(row, metric)).length
+      : null,
   }));
 }
 

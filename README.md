@@ -1,23 +1,54 @@
-# JANKeN PoN — iOS Build 2
+# JANKeN PoN — iOS Build 3
 
-『JANKeN PoN』は、世界の掛け声で遊ぶじゃんけんゲームです。Build 2 は、
-**実機の動画で見つかった指摘（ノッチ被り・文字の小ささ・左右・履歴・かけ声）を直し、
-「締切まで選び直せる／かけ声で同時に開く」ルールにした版** です（App Store 提出 / TestFlight 配信まで持っていけます）。
+『JANKeN PoN』は、世界の掛け声で遊ぶじゃんけんゲームです。Build 3 は、
+**実機で「音が出ない」原因を直し、「これで決定（ロック）」を足し、国内パーティーを無料にした版** です
+（App Store 提出 / TestFlight 配信まで持っていけます）。
 
 - アプリ名: **JANKeN PoN** / Bundle ID: **`jp.signlink.JankenPon`**
-- 課金: **`jp.signlink.JankenPon.pro`**（買い切り・StoreKit 2）
-- 版: `MARKETING_VERSION = 1.0.0` / `CURRENT_PROJECT_VERSION = 2`
+- 課金: **`jp.signlink.JankenPon.pro`**（買い切り・StoreKit 2 / **¥300**）
+- 版: `MARKETING_VERSION = 1.0.0` / `CURRENT_PROJECT_VERSION = 3`
 - 構成: 純粋な ES Modules + 静的アセット（ビルド不要）→ `www/` に写して Capacitor へ
 
 ```
-npm test        # ルール・通信・Build 1/2 仕様のテスト（181件）
+npm test        # ルール・通信・Build 1/2/3 仕様のテスト（223件）
 npm run serve   # http://127.0.0.1:4173 で確認（file:// では ES Modules が動きません）
 npm run shots   # Chromium で操作テスト + スクショ（downloads/janken-b1-*.png）
 node tools/shots-b2.mjs  # Build 2 の見た目・操作（downloads/janken-b2-*.png）
-npm run www     # 配布用 www/ を作る
+node tools/shots-b3.mjs  # Build 3 の見た目・操作（downloads/janken-b3-*.png・2ブラウザ対戦も）
 npm run e2e     # 2ブラウザ × 実 Supabase で合言葉の部屋を5回戦（手動の通し確認）
+npm run www     # 配布用 www/ を作る
 npm run ios:sync # cap sync ios（www → ios/App/App/public）
 ```
+
+## Build 3 の変更点（2026-11-22）
+
+実機動画（`ScreenRecording_11-22-2026 08-03-24`）とスクショ（`IMG_4124` / `IMG_4125`）の指摘を直した版。
+
+1. **音が出ない原因の修正**: iOS の Web Audio は Audio Session の種類が既定 `ambient` で、
+   **マナースイッチ（消音）が入っていると丸ごと無音**になる。アプリ側の `AVAudioSession(.playback)` は
+   WKWebView の別プロセスには効かないため、Web 側で直す：
+   - `navigator.audioSession.type = 'playback'`（iOS 16.4+）
+   - 無音 WAV の `<audio>` を操作中に鳴らし、WebProcess のセッションを playback に（古い iOS 用）
+   - `AudioContext` は**起動時ではなく操作の中で**作り、同じスタックで `resume()` ＋ 無音バッファ再生
+   - ミュートは 0.0001 のランプをやめ、専用ゲート（0 / 1）で行う
+   - 復帰（visibilitychange / applicationDidBecomeActive）で起こし直す
+   - 設定に **「音をテスト」**（鳴らして Audio Session の種類を表示）
+2. **CPU 練習の秒数**: 初級 7秒 / 中級 5秒（既定）/ 上級 3秒 / 最強 2秒（旧 10 / 7 / 4 / 2）。
+3. **「特大」のレイアウト**: 「回戦数 / CPUの強さ」は折り返さず、幅が足りなければセグメントが次の行へ。
+   戦績の「チョキ」が2行に割れない。プレイ中の案内が残り秒数と重ならない。
+4. **その手を出したときの勝率**: 戦績の各行に「勝率 67%（6勝3敗・あいこ2）」を追加（あいこは除いて数える）。
+5. **ランキングの色凡例**: 3色バーが ✊グー / ✌️チョキ / ✋パー のどれかを、行と同じ色で表示。
+6. **勝率ランキングは5戦以上**: 1戦1勝の100%で1位にならない。5戦未満は「圏外・あと何戦」で案内。
+7. **「これで決定（ロック）」**: 手を選ぶと手の上に出る。押すと**カウントを待たずに確定**し、
+   CPU はすぐ「ぽん！」、通信は「相手を待っています」（全員が押したら即オープン）。
+   押さなければ従来どおり締切まで選び直せる。
+8. **パーティーは国内が無料・世界が PRO**: 無料は**同じ国籍だけ**の国内パーティー（チャンネルも国コードで分離）、
+   PRO は**世界パーティー**（どこの国の人とも同じ合言葉で集まれる）。
+9. **通信の点検で直した実際の不具合**:
+   - 相手の手が締切と同時に届くと `cpu hand null` で止まる競合（※Build 2 から）
+   - 合言葉の部屋で先に組んだ人がすぐ離れ、後から入った人がひとりぼっちで待ち続ける
+   - 送れなかった手を「出した」ことにして相手を待ち続ける／復帰時に送り直さない
+   - パーティーの定員4人を超えて入れ、試合中の途中参加も入ってしまう
 
 ## Build 2 の変更点（2026-11-22）
 

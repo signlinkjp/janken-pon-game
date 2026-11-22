@@ -51,6 +51,9 @@ import {
   canPlayWorld,
   canPlayDomestic,
   canPlayParty,
+  canPlayDomesticParty,
+  canPlayWorldParty,
+  partyScopesFor,
   canSeeOpponentRates,
   frameFor,
   fallbackPrice,
@@ -117,14 +120,17 @@ test('通信対戦は1手5秒固定・マッチングは30秒で打ち切り', (
   assert.equal(ONLINE_RULES.rulesetId, 'standard');
 });
 
-test('CPU練習だけが思考時間を選べる（2秒〜10秒）', () => {
+test('CPU練習だけが思考時間を選べる（2秒〜7秒・中級5秒が基本）', () => {
   const times = Object.values(LEVELS).map((level) => level.thinkingTimeMs);
-  assert.deepEqual(times.sort((a, b) => a - b), [2000, 4000, 7000, 10000]);
+  assert.deepEqual(times.sort((a, b) => a - b), [2000, 3000, 5000, 7000]);
   for (const time of times) {
-    assert.ok(time >= 2000 && time <= 10000, `${time}ms は 2〜10秒の範囲`);
+    assert.ok(time >= 2000 && time <= 7000, `${time}ms は 2〜7秒の範囲`);
   }
-  /* 通信対戦の5秒は、どのレベルとも一致しない（別ルールであることの担保） */
-  assert.equal(times.includes(ONLINE_TURN_MS), false);
+  /* Build 3: 中級の5秒は、通信対戦の1手5秒と同じ速さ（基本の速さを合わせる） */
+  assert.equal(LEVELS.normal.thinkingTimeMs, ONLINE_TURN_MS);
+  assert.equal(LEVELS.easy.thinkingTimeMs, 7000);
+  assert.equal(LEVELS.hard.thinkingTimeMs, 3000);
+  assert.equal(LEVELS.master.thinkingTimeMs, 2000);
 });
 
 /* ------------------------------------------------------------------ *\
@@ -217,7 +223,11 @@ test('無料: CPU練習（初〜上級）・国内ランキング・12言語', (
   assert.equal(canUseLevel(false, 'master'), false);
   assert.equal(canPlayDomestic(), true);
   assert.equal(canPlayWorld(false), false);
-  assert.equal(canPlayParty(false), false);
+  /* Build 3: 国内パーティーは無料（世界パーティーだけ PRO） */
+  assert.equal(canPlayParty(false), true);
+  assert.equal(canPlayDomesticParty(), true);
+  assert.equal(canPlayWorldParty(false), false);
+  assert.deepEqual(partyScopesFor(false), ['domestic']);
   assert.equal(canSeeOpponentRates(false), false);
   assert.equal(frameFor(false), 'standard');
 });
@@ -227,6 +237,8 @@ test('PRO: 世界・パーティー・最強CPU・手の率・ゴールドフレ
   assert.equal(canUseLevel(true, 'master'), true);
   assert.equal(canPlayWorld(true), true);
   assert.equal(canPlayParty(true), true);
+  assert.equal(canPlayWorldParty(true), true);
+  assert.deepEqual(partyScopesFor(true), ['domestic', 'world']);
   assert.equal(canSeeOpponentRates(true), true);
   assert.equal(frameFor(true), 'gold');
   assert.ok(FREE_LEVELS.every((id) => PRO_LEVELS.includes(id)));
