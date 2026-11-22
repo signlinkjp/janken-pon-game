@@ -2999,7 +2999,7 @@ function boot() {
 
   window.JANKeNPoN = {
     version: '1.0.0',
-    build: 3,
+    build: 4,
     get profile() {
       return app.profile;
     },

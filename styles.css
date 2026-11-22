@@ -787,6 +787,8 @@ input { font-family: inherit; }
 .round-row__pts { font-family: var(--font-en); font-weight: 800; font-size: calc(12px * var(--ts)); color: var(--ink-dim); min-width: 40px; text-align: right; }
 .round-row.is-win { border-color: rgba(15, 157, 104, 0.28); background: #f4fdf9; }
 .round-row.is-win .round-row__pts { color: var(--win); }
+/* Build 4: 負けた回戦も WIN の緑枠と対になる赤枠で囲む（薄い赤の地＋赤い縁） */
+.round-row.is-lose { border-color: rgba(221, 59, 59, 0.28); background: #fff5f5; }
 .round-row.is-lose .round-row__pts { color: var(--lose); }
 .round-row__tag { font-family: var(--font-en); font-size: calc(7.5px * var(--ts)); font-weight: 800; letter-spacing: 0.08em; color: var(--ink-faint); }
 .round-row .hand-map { margin-left: 2px; }
@@ -1409,7 +1411,7 @@ textarea {
 .pk__mark { position: absolute; top: 1px; right: 3px; font-family: var(--font-en); font-size: calc(8px * var(--ts)); font-weight: 900; line-height: 1; }
 .pk.is-win { background: #f3fdf8; border-color: rgba(15, 157, 104, 0.35); }
 .pk.is-win .pk__mark { color: var(--win); }
-.pk.is-lose { background: #fff6f6; border-color: rgba(221, 59, 59, 0.3); }
+.pk.is-lose { background: #fff4f4; border-color: rgba(221, 59, 59, 0.35); }
 .pk.is-lose .pk__mark { color: var(--lose); }
 .pk.is-tie { background: #f8fafd; border-color: rgba(125, 139, 168, 0.35); }
 .pk.is-tie .pk__mark { color: var(--tie); }

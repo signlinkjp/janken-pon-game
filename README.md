@@ -1,24 +1,40 @@
-# JANKeN PoN — iOS Build 3
+# JANKeN PoN — iOS Build 4
 
-『JANKeN PoN』は、世界の掛け声で遊ぶじゃんけんゲームです。Build 3 は、
-**実機で「音が出ない」原因を直し、「これで決定（ロック）」を足し、国内パーティーを無料にした版** です
+『JANKeN PoN』は、世界の掛け声で遊ぶじゃんけんゲームです。Build 4 は、
+**結果画面の負けた回戦（LOSE）を赤枠で囲み、WIN の緑枠と並べて勝敗がひと目で分かるようにした版** です
 （App Store 提出 / TestFlight 配信まで持っていけます）。
 
 - アプリ名: **JANKeN PoN** / Bundle ID: **`jp.signlink.JankenPon`**
 - 課金: **`jp.signlink.JankenPon.pro`**（買い切り・StoreKit 2 / **¥300**）
-- 版: `MARKETING_VERSION = 1.0.0` / `CURRENT_PROJECT_VERSION = 3`
+- 版: `MARKETING_VERSION = 1.0.0` / `CURRENT_PROJECT_VERSION = 4`
 - 構成: 純粋な ES Modules + 静的アセット（ビルド不要）→ `www/` に写して Capacitor へ
 
 ```
-npm test        # ルール・通信・Build 1/2/3 仕様のテスト（223件）
+npm test        # ルール・通信・Build 1/2/3/4 仕様のテスト（231件）
 npm run serve   # http://127.0.0.1:4173 で確認（file:// では ES Modules が動きません）
 npm run shots   # Chromium で操作テスト + スクショ（downloads/janken-b1-*.png）
 node tools/shots-b2.mjs  # Build 2 の見た目・操作（downloads/janken-b2-*.png）
 node tools/shots-b3.mjs  # Build 3 の見た目・操作（downloads/janken-b3-*.png・2ブラウザ対戦も）
+node tools/shots-b4.mjs  # Build 4 の結果画面（LOSE の赤枠・PKボードの赤枠／downloads/janken-b4-result.png）
 npm run e2e     # 2ブラウザ × 実 Supabase で合言葉の部屋を5回戦（手動の通し確認）
 npm run www     # 配布用 www/ を作る
 npm run ios:sync # cap sync ios（www → ios/App/App/public）
 ```
+
+## Build 4 の変更点（2026-11-22）
+
+実機スクショ（`IMG_4128`）の指摘。5回戦の結果画面で、**WIN の行だけが緑枠**で、
+負けた回戦（`LOSE`）は薄いグレー枠のままだった。
+
+1. **結果画面の LOSE を赤枠に**: `WIN` の緑枠（薄い緑の地＋緑の縁）と対になる、
+   **薄い赤の地＋赤い縁**（`#dd3b3b` を 28%・`#fff5f5`）で囲む。WIN と同じ1px の枠なので、
+   行の高さ・並びは変わらない。`0pt` の赤はこれまでどおり。
+   あいこ（`DRAW`）は中立のまま（白い地）で、勝ち・負けを引き立てる。
+2. **プレイ画面の PK 履歴ボードも揃えた**: 負けた回戦（`×`）の枠を WIN（`○`）と同じ濃さの赤に
+   （`#fff4f4` / 35%）。プレイ中から結果まで、勝敗の色が一貫する。
+3. **ビルド番号 4**: `CURRENT_PROJECT_VERSION = 4`（Debug / Release の2箇所）・アプリ側 `build: 4`・
+   設定の版表示 `(Build 4)`・`www/` を同期。テスト（`test/build4.test.js`）と
+   実ブラウザ確認（`tools/shots-b4.mjs`・16チェック）で固定。
 
 ## Build 3 の変更点（2026-11-22）
 
@@ -198,10 +214,15 @@ test/core.test.js       ルール・進行・ランキング・保存（63テス
 test/online.test.js     通信プロトコル（22テスト・フェイクWSで往復）
 test/build1.test.js     Build 1 仕様（50テスト）
 test/build2.test.js     Build 2 仕様（セーフエリア・文字サイズ・音・国籍ロック・左右・週間・PKボード・かけ声・選び直し・同時オープン・無料/PRO）
+test/build3.test.js     Build 3 仕様（音の原因・CPU 7/5/3/2秒・特大・手ごとの勝率・凡例・勝率5戦以上）
+test/build4.test.js     Build 4 仕様（結果画面 LOSE の赤枠・PKボードの赤枠・ビルド番号4・www 同期）
 tools/online-e2e.mjs    2ブラウザ × 実 games-realtime の通し確認（手動）
 tools/serve.mjs         静的サーバー
 tools/shots.mjs         Chromium 操作テスト + スクショ（Build 1）
 tools/shots-b2.mjs      Chromium 操作テスト + スクショ（Build 2・セーフエリア想定）
+tools/shots-b3.mjs      Chromium 操作テスト + スクショ（Build 3）
+tools/shots-b4.mjs      Chromium 操作テスト + スクショ（Build 4・結果の LOSE 赤枠）
+tools/preflight-local.py  ワークフローの preflight をローカルで通す（python3 tools/preflight-local.py .github/workflows/ios-testflight-build1.yml）
 tools/make-www.mjs      配布用 www/ の生成
 capacitor.config.json   appId / appName / webDir
 ios/                    Capacitor iOS プロジェクト（Bundle ID・アイコン・StoreKit・AVAudioSession）
@@ -228,6 +249,9 @@ docs/live-check.md      実 games-realtime での確認記録（2人対戦・3�
 preflight は、pbxproj の `CURRENT_PROJECT_VERSION` を読んで、2箇所（Debug/Release）が
 揃っていること・正の整数であることを確かめてから進みます。**ワークフロー側にはビルド番号を
 書きません**（Build 3 以降は pbxproj の番号を上げるだけ。`MARKETING_VERSION` も同じ場所から読みます）。
+Build 4 で上げた番号（4）は、いま GitHub にあるワークフローがそのまま読み取ります
+（`python3 tools/preflight-local.py .github/workflows/ios-testflight-build1.yml` でローカル確認済み:
+preflight 全ステップ合格・ビルド番号 4）。**ワークフローファイルの貼り替えは要りません。**
 
 ## 次の一歩（Build 2 の外）
 
