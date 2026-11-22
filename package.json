@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "JANKeN PoN — 世界の掛け声で5/3回戦じゃんけん（Capacitor iOS / Build 6）",
+  "description": "JANKeN PoN — 世界の掛け声で5/3回戦じゃんけん（Capacitor iOS / Build 7）",
   "license": "UNLICENSED",
   "scripts": {
-    "test": "node --test --test-concurrency=1 test/core.test.js test/online.test.js test/build1.test.js test/build2.test.js test/build3.test.js test/build4.test.js test/build5.test.js test/build6.test.js",
+    "test": "node --test --test-concurrency=1 test/core.test.js test/online.test.js test/build1.test.js test/build2.test.js test/build3.test.js test/build4.test.js test/build5.test.js test/build6.test.js test/build7.test.js",
     "serve": "node tools/serve.mjs",
     "shots": "node tools/shots.mjs",
     "ios:sync": "cap sync ios",

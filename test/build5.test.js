@@ -319,21 +319,21 @@ test('設定: サウンド ON/OFF と音の初期化そのものは残す', () =
  * 6. ビルド番号 5 と www 同期
  * ================================================================== */
 
-test('ビルド: iOS プロジェクトもアプリも Build 6', () => {
+test('ビルド: iOS プロジェクトもアプリも Build 7', () => {
   const pbx = read('ios/App/App.xcodeproj/project.pbxproj');
   const numbers = [...pbx.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map((m) => Number(m[1]));
   assert.equal(numbers.length, 2, 'Debug / Release の2箇所');
-  assert.deepEqual(numbers, [6, 6], '2箇所とも 6');
+  assert.deepEqual(numbers, [7, 7], '2箇所とも 7');
   assert.ok(pbx.includes('MARKETING_VERSION = 1.0.0;'), '表示バージョンは 1.0.0 のまま');
-  assert.ok(/version: '1\.0\.0',\s*build: 6,/.test(MAIN), 'アプリ側の build も 6');
-  assert.ok(HTML.includes('(Build 6)'), '設定の版表示も Build 6');
+  assert.ok(/version: '1\.0\.0',\s*build: 7,/.test(MAIN), 'アプリ側の build も 7');
+  assert.ok(HTML.includes('(Build 7)'), '設定の版表示も Build 7');
 });
 
-test('www: 配布用の写しにも Build 6 と音声ファイルが入る', async () => {
+test('www: 配布用の写しにも Build 7 と音声ファイルが入る', async () => {
   const { makeWww } = await import('../tools/make-www.mjs');
   await makeWww();
-  assert.ok(read('www/index.html').includes('(Build 6)'));
-  assert.ok(/version: '1\.0\.0',\s*build: 6,/.test(read('www/src/main.js')));
+  assert.ok(read('www/index.html').includes('(Build 7)'));
+  assert.ok(/version: '1\.0\.0',\s*build: 7,/.test(read('www/src/main.js')));
   assert.ok(read('www/src/countries.js').includes("voice: 'ja-JP-NanamiNeural'"));
   assert.ok(exists('www/assets/voices/jp.mp3'), 'www に音声が写る');
   assert.equal(size('www/assets/voices/jp.mp3'), size('assets/voices/jp.mp3'), '同じファイル');
@@ -341,7 +341,7 @@ test('www: 配布用の写しにも Build 6 と音声ファイルが入る', asy
   assert.equal(files.length, COUNTRIES.length);
 });
 
-test('ワークフロー: いまの見張りは Build 6 と音声ファイルをそのまま通す', () => {
+test('ワークフロー: いまの見張りは Build 7 と音声ファイルをそのまま通す', () => {
   const yml = read('.github/workflows/ios-testflight-build1.yml');
   assert.equal(/BUILD_NUMBER:\s*"\d+"/.test(yml), false, '番号は固定しない');
   assert.ok(yml.includes('CURRENT_PROJECT_VERSION'));

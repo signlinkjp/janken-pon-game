@@ -1,16 +1,17 @@
-# JANKeN PoN — iOS Build 6
+# JANKeN PoN — iOS Build 7
 
-『JANKeN PoN』は、世界の掛け声で遊ぶじゃんけんゲームです。Build 6 は、
-**プレイ中にワンタップでサウンド／かけ声を ON/OFF できるボタンを足した、
-`1.0.0` App Store 審査提出用の最終ビルド** です（1対1・パーティー共通、設定のサウンドと同じ値）。
+『JANKeN PoN』は、世界の掛け声で遊ぶじゃんけんゲームです。Build 7 は、
+**プレイ画面下部の案内を2行に整理し（「選択中（カウント終了で確定）／ほかの手をタップで変更できます」）、
+PRO 画面の最強CPUの説明を「最強CPUとお互いに手のクセを読み合う心理戦」にした、
+`1.0.0` App Store 審査提出用の最終ビルド** です。
 
 - アプリ名: **JANKeN PoN** / Bundle ID: **`jp.signlink.JankenPon`**
 - 課金: **`jp.signlink.JankenPon.pro`**（買い切り・StoreKit 2 / **¥300**）
-- 版: `MARKETING_VERSION = 1.0.0` / `CURRENT_PROJECT_VERSION = 6`
+- 版: `MARKETING_VERSION = 1.0.0` / `CURRENT_PROJECT_VERSION = 7`
 - 構成: 純粋な ES Modules + 静的アセット（ビルド不要）→ `www/` に写して Capacitor へ
 
 ```
-npm test        # ルール・通信・Build 1〜6 仕様のテスト（264件）
+npm test        # ルール・通信・Build 1〜7 仕様のテスト（276件）
 npm run serve   # http://127.0.0.1:4173 で確認（file:// では ES Modules が動きません）
 npm run shots   # Chromium で操作テスト + スクショ（downloads/janken-b1-*.png）
 node tools/shots-b2.mjs  # Build 2 の見た目・操作（downloads/janken-b2-*.png）
@@ -18,11 +19,34 @@ node tools/shots-b3.mjs  # Build 3 の見た目・操作（downloads/janken-b3-*
 node tools/shots-b4.mjs  # Build 4 の結果画面（LOSE の赤枠・PKボードの赤枠／downloads/janken-b4-result.png）
 node tools/shots-b5.mjs  # Build 5 の声と設定（downloads/janken-b5-settings.png・janken-b5-chant.png）
 node tools/shots-b6.mjs  # Build 6 のサウンド切替と提出用スクショ（downloads/janken-b6-*.png・1320×2868）
+node tools/shots-b7.mjs  # Build 7 の2行の案内・PRO 画面と提出用スクショ（downloads/janken-b7-*.png・1320×2868）
 node tools/make-voices.mjs  # かけ声の mp3 を作り直す（edge-tts・assets/voices/）
 npm run e2e     # 2ブラウザ × 実 Supabase で合言葉の部屋を5回戦（手動の通し確認）
 npm run www     # 配布用 www/ を作る
 npm run ios:sync # cap sync ios（www → ios/App/App/public）
 ```
+
+## Build 7 の変更点（2026-11-23）
+
+トモアキさんの要望「プレイ画面の下の『選択中 — ほかの手をタップで変更（カウント終了で確定）』が
+『カウント終了で確 / 定）』みたいに途中で切れる。2行でスッキリ見せたい」と
+「PRO画面の『最強CPU（MASTER・2秒）』の下を『最強CPUとお互いに手のクセを読み合う心理戦』に」。
+
+1. **プレイ画面下部の案内を2行に**（`play.selected`）:
+   - 1行目「選択中（カウント終了で確定）」／2行目「ほかの手をタップで変更できます」
+   - 文言の `\n` を `.timer__hint` の `white-space: pre-line` で改行にするので、
+     端末幅や文字サイズで「確/定」のように単語の途中が割れない
+   - 1対1・パーティーの両方（同じキー・同じ見た目）。12言語ぶん、1行目が長い言語は短くして2行に揃えた
+2. **「これで決定」の補足も2行に**（`play.lockHint`）:
+   「押すとすぐ「ぽん！」」／「押さなければ選び直せます」（「締/切」で割れていたのを解消）
+3. **PRO 画面の最強CPUの説明**: 「最強CPUとお互いに」／「手のクセを読み合う心理戦」の2行。
+   `core.js` の `LEVELS.master.blurbJa` も「2秒。お互いのクセを読み合う、心理戦の相手。」に揃えた
+   （実装は相手のクセを予測する `predictPlayerHand` ＋ PRO では相手の手の率が見える、の両方向）
+4. **ビルド番号 7**: `CURRENT_PROJECT_VERSION = 7`（Debug / Release の2箇所）・アプリ側 `build: 7`・
+   設定の版表示 `(Build 7)`・`www/` を同期。テスト（`test/build7.test.js` 12件・全276件）と
+   実ブラウザ確認（`tools/shots-b7.mjs`・265チェック）で固定。
+   - ついでに `openPods` に「前の試合のかけ声が残っているときは何も開かない」ガードを入れた
+     （開始直後に古いかけ声の最後の拍が来ても落ちない）
 
 ## Build 6 の変更点（2026-11-23）
 
@@ -259,6 +283,7 @@ test/build3.test.js     Build 3 仕様（音の原因・CPU 7/5/3/2秒・特大�
 test/build4.test.js     Build 4 仕様（結果画面 LOSE の赤枠・PKボードの赤枠・ビルド番号4・www 同期）
 test/build5.test.js     Build 5 仕様（19か国の声と mp3・再生/停止/重ならない・設定の削除・ビルド番号5）
 test/build6.test.js     Build 6 仕様（プレイ中のサウンド ON/OFF・設定との同期・特大ヘッダー・ビルド番号6）
+test/build7.test.js     Build 7 仕様（2行の案内と pre-line・決定ボタンの補足・PRO の最強CPU説明・ビルド番号7）
 tools/online-e2e.mjs    2ブラウザ × 実 games-realtime の通し確認（手動）
 tools/serve.mjs         静的サーバー
 tools/shots.mjs         Chromium 操作テスト + スクショ（Build 1）
@@ -267,6 +292,7 @@ tools/shots-b3.mjs      Chromium 操作テスト + スクショ（Build 3）
 tools/shots-b4.mjs      Chromium 操作テスト + スクショ（Build 4・結果の LOSE 赤枠）
 tools/shots-b5.mjs      Chromium 操作テスト + スクショ（Build 5・声と設定）
 tools/shots-b6.mjs      Chromium 操作テスト + スクショ（Build 6・サウンド切替・提出用 1320×2868）
+tools/shots-b7.mjs      Chromium 操作テスト + スクショ（Build 7・2行の案内・PRO 画面・提出用 1320×2868）
 tools/preflight-local.py  ワークフローの preflight をローカルで通す（python3 tools/preflight-local.py .github/workflows/ios-testflight-build1.yml）
 tools/make-www.mjs      配布用 www/ の生成（assets/voices も写す）
 tools/make-voices.mjs   かけ声の mp3 を国データから作る（edge-tts / assets/voices/）
@@ -296,9 +322,9 @@ docs/live-check.md      実 games-realtime での確認記録（2人対戦・3�
 preflight は、pbxproj の `CURRENT_PROJECT_VERSION` を読んで、2箇所（Debug/Release）が
 揃っていること・正の整数であることを確かめてから進みます。**ワークフロー側にはビルド番号を
 書きません**（Build 3 以降は pbxproj の番号を上げるだけ。`MARKETING_VERSION` も同じ場所から読みます）。
-Build 6 で上げた番号（6）も、いま GitHub にあるワークフローがそのまま読み取ります
+Build 7 で上げた番号（7）も、いま GitHub にあるワークフローがそのまま読み取ります
 （`python3 tools/preflight-local.py .github/workflows/ios-testflight-build1.yml` でローカル確認済み:
-preflight 全ステップ合格・ビルド番号 6）。**ワークフローファイルの貼り替えは要りません。**
+preflight 全ステップ合格・ビルド番号 7）。**ワークフローファイルの貼り替えは要りません。**
 
 ## 次の一歩（Build 2 の外）
 

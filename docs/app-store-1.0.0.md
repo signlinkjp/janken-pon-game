@@ -1,4 +1,4 @@
-# JANKeN PoN — App Store 1.0.0 提出用（Build 6）
+# JANKeN PoN — App Store 1.0.0 提出用（Build 7）
 
 そのまま App Store Connect に貼り付けられる文面です。文字数は App Store Connect の上限に収めてあります
 （名前 30 / サブタイトル 30 / プロモーション用テキスト 170 / キーワード 100 / 説明 4000）。
@@ -10,7 +10,7 @@
 | --- | --- |
 | アプリ名（App Store 表示名） | **JANKeN PoN** |
 | Bundle ID | `jp.signlink.JankenPon` |
-| バージョン / ビルド | **1.0.0 (Build 6)** |
+| バージョン / ビルド | **1.0.0 (Build 7)** |
 | 課金（買い切り） | **`jp.signlink.JankenPon.pro` ¥300**（英語圏の表示は $1.99） |
 | サポート URL | `https://github.com/signlinkjp/janken-pon-game` |
 | サポートメール | `t.maks.ts@gmail.com`（表示名 `T-maks Games`） |
@@ -22,8 +22,9 @@
 | アイコン | `assets/janken-appicon-1024.png`（1024×1024・アルファなし） |
 | スクショ | **6.9インチ（1320×2868）** 7枚 — 下の「4. スクリーンショット」 |
 
-審査に出すビルドは **Build 6**（`CURRENT_PROJECT_VERSION = 6`・`MARKETING_VERSION = 1.0.0`）。
-Build 6 の中身: プレイ中のサウンド／かけ声ワンタップ ON/OFF（1対1・パーティー共通・設定と同期）＋ビルド番号。
+審査に出すビルドは **Build 7**（`CURRENT_PROJECT_VERSION = 7`・`MARKETING_VERSION = 1.0.0`）。
+Build 7 の中身: プレイ画面下部の案内を2行に整理（「選択中（カウント終了で確定）／ほかの手をタップで変更できます」・「これで決定」の補足も2行）＋ PRO 画面の最強CPUの説明を「最強CPUとお互いに手のクセを読み合う心理戦」に＋ビルド番号。
+（Build 6 までの中身: サウンド／かけ声ワンタップ ON/OFF・同梱mp3のかけ声・結果画面の赤枠・PK履歴 等）
 
 ---
 
@@ -219,7 +220,7 @@ Privacy: https://github.com/signlinkjp/janken-pon-game/blob/main/docs/privacy.md
 
 ## 3. App のプライバシー（App Privacy の回答）
 
-コードを確認したうえでの回答（2026-11-23・Build 6）。
+コードを確認したうえでの回答（2026-11-23・Build 7）。
 
 - **トラッキング**: なし（`NSUserTrackingUsageDescription` も広告 SDK もない）。
 - **収集するデータ**: ユーザーコンテンツ ›「その他のユーザーコンテンツ」— ニックネーム・国・対戦記録（ポイント・勝敗・手の率）。
@@ -234,22 +235,23 @@ Privacy: https://github.com/signlinkjp/janken-pon-game/blob/main/docs/privacy.md
 
 ## 4. スクリーンショット（6.9インチ・1320×2868）
 
-`node tools/shots-b6.mjs` で撮影（Chromium 440×956 @3x）。すべて実画面・pageerror ゼロ。
+`node tools/shots-b7.mjs` で撮影（Chromium 440×956 @3x）。すべて実画面・pageerror ゼロ。
 並び順の推奨（1枚目が一番伝わるもの）:
 
 | # | ファイル | 中身 |
 | --- | --- | --- |
-| 1 | `downloads/janken-b6-play.png` | プレイ中（かけ声の瞬間・右上に 🔊 ON） |
-| 2 | `downloads/janken-b6-title.png` | タイトル（モード・回戦数・CPUの強さ） |
-| 3 | `downloads/janken-b6-result.png` | 結果（5回戦/3回戦の WIN・LOSE が色分け） |
-| 4 | `downloads/janken-b6-ranking.png` | 国内ランキング（YOU の行・手の率） |
-| 5 | `downloads/janken-b6-party.png` | パーティー（4人・サウンドのボタン入り） |
-| 6 | `downloads/janken-b6-pro.png` | PRO（¥300・5つの解放内容） |
-| 7 | `downloads/janken-b6-settings.png` | 設定（サウンド・文字サイズ・言語・版表示 1.0.0 (Build 6)） |
+| 1 | `downloads/janken-b7-play.png` | プレイ中（かけ声の瞬間・右上に 🔊 ON・下部の案内は2行） |
+| 2 | `downloads/janken-b7-title.png` | タイトル（モード・回戦数・CPUの強さ） |
+| 3 | `downloads/janken-b7-result.png` | 結果（5回戦/3回戦の WIN・LOSE が色分け） |
+| 4 | `downloads/janken-b7-ranking.png` | 国内ランキング（YOU の行・手の率） |
+| 5 | `downloads/janken-b7-party.png` | パーティー（4人・サウンドのボタン入り） |
+| 6 | `downloads/janken-b7-pro.png` | PRO（¥300・5つの解放内容・最強CPUの説明は2行） |
+| 7 | `downloads/janken-b7-settings.png` | 設定（サウンド・文字サイズ・言語・版表示 1.0.0 (Build 7)） |
 
 補助（QA・提出用ではない）:
-- `downloads/janken-b6-play-muted.png` — サウンド OFF の見た目（🔇 OFF）
-- `downloads/janken-b6-xlarge.png` / `janken-b6-xlarge-375.png` — 特大文字のヘッダー（393 / 375 幅・はみ出しなし）
+- `downloads/janken-b7-play-muted.png` — サウンド OFF の見た目（🔇 OFF）
+- `downloads/janken-b7-xlarge.png` / `janken-b7-xlarge-375.png` — 特大文字のプレイ画面（393 / 375 幅・2行の案内がはみ出さない）
+- `downloads/janken-b7-pro-xlarge.png` / `janken-b7-pro-xlarge-375.png` — 特大文字の PRO 画面（最強CPUの説明が2行）
 
 ※ スクショはステータスバーなしで描画しています（Web 画面を端末サイズで描いたもの）。
 実機で撮り直す場合は、iPhone 16 Pro Max のスクリーンショット（1320×2868）がそのまま同じ枠に入ります。
@@ -259,7 +261,7 @@ Privacy: https://github.com/signlinkjp/janken-pon-game/blob/main/docs/privacy.md
 
 ## 5. 提出前チェック（App Store Connect で埋めるもの）
 
-- [ ] バージョン 1.0.0・ビルド 6 を選択（TestFlight で Build 6 が処理済みであること）
+- [ ] バージョン 1.0.0・ビルド 7 を選択（TestFlight で Build 7 が処理済みであること）
 - [ ] アプリ名 / サブタイトル / プロモーション用テキスト / キーワード / 説明（日本語・英語）
 - [ ] スクリーンショット 6.9インチ 7枚
 - [ ] サポート URL・プライバシーポリシー URL（上の2つ）

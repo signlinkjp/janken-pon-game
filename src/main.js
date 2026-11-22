@@ -1153,6 +1153,9 @@ function renderLockButton() {
 
 /** かけ声の最後の拍で、自分と相手の手を同時に開く */
 function openPods(cpuHand) {
+  /* 前に始めた試合のかけ声が残っていて、もう次に移っているときは何も開かない
+     （開始直後に古いかけ声の最後の拍が来ても落ちないように・Build 7） */
+  if (!HAND_META[app.pickedHand] || !HAND_META[cpuHand]) return;
   $('#you-hand-img').src = HAND_META[app.pickedHand].asset;
   $('#you-pod').classList.add('is-revealed');
   $('#cpu-hand-img').src = HAND_META[cpuHand].asset;
@@ -3042,7 +3045,7 @@ function boot() {
 
   window.JANKeNPoN = {
     version: '1.0.0',
-    build: 6,
+    build: 7,
     get profile() {
       return app.profile;
     },

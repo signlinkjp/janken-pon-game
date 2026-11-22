@@ -175,7 +175,9 @@ export const LEVELS = Object.freeze({
   },
   master: {
     id: 'master', label: 'MASTER', labelJa: '最強', thinkingTimeMs: 2000, pro: true,
-    blurbJa: '2秒。2手先を読み、迷わせにくる。心理戦の相手。',
+    /* Build 7: PRO 画面の説明（「最強CPUとお互いに手のクセを読み合う心理戦」）に合わせる。
+       実装は「相手のクセを読む」（predictPlayerHand）＋ PRO は相手の手の率が見える、の両方向。 */
+    blurbJa: '2秒。お互いのクセを読み合う、心理戦の相手。',
   },
 });
 
