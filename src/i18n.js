@@ -76,7 +76,7 @@ export const KEYS = Object.freeze([
   'party.title', 'party.create', 'party.join', 'party.players', 'party.start', 'party.waitHost', 'party.rule', 'party.unranked', 'party.unrankedShort', 'party.running', 'party.full', 'party.scopeNote',
   'pro.title', 'pro.sub', 'pro.price', 'pro.buy', 'pro.restore', 'pro.owned', 'pro.preview', 'pro.previewOn', 'pro.previewNote', 'pro.noPoints', 'pro.diag',
   'pro.item1', 'pro.item2', 'pro.item3', 'pro.item4', 'pro.item5',
-  'settings.title', 'settings.language', 'settings.sound', 'settings.soundTest', 'settings.stamps', 'settings.howto', 'settings.privacy', 'settings.reset', 'settings.dataLocal', 'settings.version',
+  'settings.title', 'settings.language', 'settings.sound', 'settings.stamps', 'settings.howto', 'settings.privacy', 'settings.reset', 'settings.dataLocal', 'settings.version',
   'settings.nickname', 'settings.country', 'settings.textSize', 'settings.textSizeSample',
   'textSize.standard', 'textSize.large', 'textSize.xlarge',
   'country.locked', 'country.confirm', 'country.confirmNote',
@@ -128,8 +128,7 @@ const ja = {
   'pro.item1': '世界通信対戦・世界ランキング', 'pro.item2': '世界パーティーバトル（2〜4人・5回戦）',
   'pro.item3': '最強CPU（MASTER・2秒）', 'pro.item4': '相手の手の率（✊✌️✋%）',
   'pro.item5': 'ゴールド称号フレーム',
-  'settings.title': '設定', 'settings.language': '言語', 'settings.sound': 'サウンド', 'settings.soundTest': '音をテスト',
-  'settings.stamps': 'スタンプ通知', 'settings.howto': 'あそびかた', 'settings.privacy': 'プライバシーポリシー',
+  'settings.title': '設定', 'settings.language': '言語', 'settings.sound': 'サウンド', 'settings.stamps': 'スタンプ通知', 'settings.howto': 'あそびかた', 'settings.privacy': 'プライバシーポリシー',
   'settings.reset': '練習データをリセット', 'settings.dataLocal': 'この端末のみ', 'settings.version': 'バージョン',
 
   'settings.nickname': 'ニックネーム',
@@ -203,8 +202,7 @@ const en = {
   'pro.item1': 'World online play & world ranking', 'pro.item2': 'World party battle (2–4 · 5 rounds)',
   'pro.item3': 'Master CPU (2s)', 'pro.item4': 'Opponent hand rates (✊✌️✋%)',
   'pro.item5': 'Gold title frame',
-  'settings.title': 'Settings', 'settings.language': 'Language', 'settings.sound': 'Sound', 'settings.soundTest': 'Test sound',
-  'settings.stamps': 'Stamp notices', 'settings.howto': 'How to play', 'settings.privacy': 'Privacy policy',
+  'settings.title': 'Settings', 'settings.language': 'Language', 'settings.sound': 'Sound', 'settings.stamps': 'Stamp notices', 'settings.howto': 'How to play', 'settings.privacy': 'Privacy policy',
   'settings.reset': 'Reset practice data', 'settings.dataLocal': 'this device only', 'settings.version': 'Version',
 
   'settings.nickname': 'Nickname',
@@ -278,8 +276,7 @@ const ko = {
   'pro.item1': '세계 온라인 대전 · 세계 랭킹', 'pro.item2': '세계 파티 배틀 (2~4명 · 5판)',
   'pro.item3': '최강 CPU (MASTER · 2초)', 'pro.item4': '상대의 손 비율 (✊✌️✋%)',
   'pro.item5': '골드 칭호 프레임',
-  'settings.title': '설정', 'settings.language': '언어', 'settings.sound': '사운드', 'settings.soundTest': '소리 테스트',
-  'settings.stamps': '스탬프 알림', 'settings.howto': '플레이 방법', 'settings.privacy': '개인정보 처리방침',
+  'settings.title': '설정', 'settings.language': '언어', 'settings.sound': '사운드', 'settings.stamps': '스탬프 알림', 'settings.howto': '플레이 방법', 'settings.privacy': '개인정보 처리방침',
   'settings.reset': '연습 기록 초기화', 'settings.dataLocal': '이 기기만', 'settings.version': '버전',
 
   'settings.nickname': '닉네임',
@@ -353,8 +350,7 @@ const zhHans = {
   'pro.item1': '世界联机对战 · 世界排行榜', 'pro.item2': '世界派对对战（2～4人 · 5回合）',
   'pro.item3': '最强 CPU（MASTER · 2秒）', 'pro.item4': '对手手势比例（✊✌️✋%）',
   'pro.item5': '金色称号边框',
-  'settings.title': '设置', 'settings.language': '语言', 'settings.sound': '音效', 'settings.soundTest': '测试声音',
-  'settings.stamps': '表情通知', 'settings.howto': '玩法', 'settings.privacy': '隐私政策',
+  'settings.title': '设置', 'settings.language': '语言', 'settings.sound': '音效', 'settings.stamps': '表情通知', 'settings.howto': '玩法', 'settings.privacy': '隐私政策',
   'settings.reset': '重置练习数据', 'settings.dataLocal': '仅本机', 'settings.version': '版本',
 
   'settings.nickname': '昵称',
@@ -428,8 +424,7 @@ const zhHant = {
   'pro.item1': '世界連線對戰 · 世界排行榜', 'pro.item2': '世界派對對戰（2～4人 · 5回合）',
   'pro.item3': '最強 CPU（MASTER · 2秒）', 'pro.item4': '對手手勢比例（✊✌️✋%）',
   'pro.item5': '金色稱號邊框',
-  'settings.title': '設定', 'settings.language': '語言', 'settings.sound': '音效', 'settings.soundTest': '測試音效',
-  'settings.stamps': '表情通知', 'settings.howto': '玩法', 'settings.privacy': '隱私權政策',
+  'settings.title': '設定', 'settings.language': '語言', 'settings.sound': '音效', 'settings.stamps': '表情通知', 'settings.howto': '玩法', 'settings.privacy': '隱私權政策',
   'settings.reset': '重設練習資料', 'settings.dataLocal': '僅本機', 'settings.version': '版本',
 
   'settings.nickname': '暱稱',
@@ -503,8 +498,7 @@ const es = {
   'pro.item1': 'Juego mundial en línea y ranking mundial', 'pro.item2': 'Fiesta mundial (2–4 · 5 rondas)',
   'pro.item3': 'CPU maestra (2 s)', 'pro.item4': 'Porcentajes de mano del rival (✊✌️✋%)',
   'pro.item5': 'Marco de título dorado',
-  'settings.title': 'Ajustes', 'settings.language': 'Idioma', 'settings.sound': 'Sonido', 'settings.soundTest': 'Probar sonido',
-  'settings.stamps': 'Avisos de sellos', 'settings.howto': 'Cómo jugar', 'settings.privacy': 'Privacidad',
+  'settings.title': 'Ajustes', 'settings.language': 'Idioma', 'settings.sound': 'Sonido', 'settings.stamps': 'Avisos de sellos', 'settings.howto': 'Cómo jugar', 'settings.privacy': 'Privacidad',
   'settings.reset': 'Borrar datos de práctica', 'settings.dataLocal': 'solo este móvil', 'settings.version': 'Versión',
 
   'settings.nickname': 'Apodo',
@@ -578,8 +572,7 @@ const fr = {
   'pro.item1': 'Jeu mondial en ligne et classement mondial', 'pro.item2': 'Fête mondiale (2–4 · 5 manches)',
   'pro.item3': 'CPU maître (2 s)', 'pro.item4': 'Taux de main de l’adversaire (✊✌️✋%)',
   'pro.item5': 'Cadre de titre doré',
-  'settings.title': 'Réglages', 'settings.language': 'Langue', 'settings.sound': 'Son', 'settings.soundTest': 'Tester le son',
-  'settings.stamps': 'Avis de tampons', 'settings.howto': 'Comment jouer', 'settings.privacy': 'Confidentialité',
+  'settings.title': 'Réglages', 'settings.language': 'Langue', 'settings.sound': 'Son', 'settings.stamps': 'Avis de tampons', 'settings.howto': 'Comment jouer', 'settings.privacy': 'Confidentialité',
   'settings.reset': 'Effacer l’entraînement', 'settings.dataLocal': 'cet appareil', 'settings.version': 'Version',
 
   'settings.nickname': 'Surnom',
@@ -653,8 +646,7 @@ const de = {
   'pro.item1': 'Weltweit online & Weltrangliste', 'pro.item2': 'Welt-Party (2–4 · 5 Runden)',
   'pro.item3': 'Meister-CPU (2 s)', 'pro.item4': 'Handquoten des Gegners (✊✌️✋%)',
   'pro.item5': 'Goldener Titelrahmen',
-  'settings.title': 'Einstellungen', 'settings.language': 'Sprache', 'settings.sound': 'Ton', 'settings.soundTest': 'Ton testen',
-  'settings.stamps': 'Stempel-Hinweise', 'settings.howto': 'Spielanleitung', 'settings.privacy': 'Datenschutz',
+  'settings.title': 'Einstellungen', 'settings.language': 'Sprache', 'settings.sound': 'Ton', 'settings.stamps': 'Stempel-Hinweise', 'settings.howto': 'Spielanleitung', 'settings.privacy': 'Datenschutz',
   'settings.reset': 'Übungsdaten löschen', 'settings.dataLocal': 'nur dieses Gerät', 'settings.version': 'Version',
 
   'settings.nickname': 'Spitzname',
@@ -728,8 +720,7 @@ const pt = {
   'pro.item1': 'Jogo mundial online e ranking mundial', 'pro.item2': 'Festa mundial (2–4 · 5 rodadas)',
   'pro.item3': 'CPU mestre (2 s)', 'pro.item4': 'Taxas de mão do rival (✊✌️✋%)',
   'pro.item5': 'Moldura de título dourada',
-  'settings.title': 'Ajustes', 'settings.language': 'Idioma', 'settings.sound': 'Som', 'settings.soundTest': 'Testar som',
-  'settings.stamps': 'Avisos de selos', 'settings.howto': 'Como jogar', 'settings.privacy': 'Privacidade',
+  'settings.title': 'Ajustes', 'settings.language': 'Idioma', 'settings.sound': 'Som', 'settings.stamps': 'Avisos de selos', 'settings.howto': 'Como jogar', 'settings.privacy': 'Privacidade',
   'settings.reset': 'Apagar dados de treino', 'settings.dataLocal': 'só neste aparelho', 'settings.version': 'Versão',
 
   'settings.nickname': 'Apelido',
@@ -803,8 +794,7 @@ const it = {
   'pro.item1': 'Gioco mondiale online e classifica mondiale', 'pro.item2': 'Festa mondiale (2–4 · 5 round)',
   'pro.item3': 'CPU maestro (2 s)', 'pro.item4': 'Percentuali di mano avversarie (✊✌️✋%)',
   'pro.item5': 'Cornice del titolo dorata',
-  'settings.title': 'Impostazioni', 'settings.language': 'Lingua', 'settings.sound': 'Audio', 'settings.soundTest': 'Prova audio',
-  'settings.stamps': 'Avvisi timbri', 'settings.howto': 'Come si gioca', 'settings.privacy': 'Privacy',
+  'settings.title': 'Impostazioni', 'settings.language': 'Lingua', 'settings.sound': 'Audio', 'settings.stamps': 'Avvisi timbri', 'settings.howto': 'Come si gioca', 'settings.privacy': 'Privacy',
   'settings.reset': 'Azzera allenamento', 'settings.dataLocal': 'solo questo device', 'settings.version': 'Versione',
 
   'settings.nickname': 'Soprannome',
@@ -878,8 +868,7 @@ const hi = {
   'pro.item1': 'विश्व ऑनलाइन खेल और विश्व रैंकिंग', 'pro.item2': 'विश्व पार्टी (2–4 · 5 राउंड)',
   'pro.item3': 'मास्टर CPU (2 सेकंड)', 'pro.item4': 'प्रतिद्वंद्वी की चाल दर (✊✌️✋%)',
   'pro.item5': 'सुनहरा टाइटल फ़्रेम',
-  'settings.title': 'सेटिंग', 'settings.language': 'भाषा', 'settings.sound': 'आवाज़', 'settings.soundTest': 'ध्वनि जाँचें',
-  'settings.stamps': 'स्टैम्प सूचना', 'settings.howto': 'कैसे खेलें', 'settings.privacy': 'गोपनीयता नीति',
+  'settings.title': 'सेटिंग', 'settings.language': 'भाषा', 'settings.sound': 'आवाज़', 'settings.stamps': 'स्टैम्प सूचना', 'settings.howto': 'कैसे खेलें', 'settings.privacy': 'गोपनीयता नीति',
   'settings.reset': 'अभ्यास डेटा रीसेट', 'settings.dataLocal': 'सिर्फ़ इस फ़ोन पर', 'settings.version': 'संस्करण',
 
   'settings.nickname': 'उपनाम',
@@ -953,8 +942,7 @@ const id = {
   'pro.item1': 'Laga dunia daring & peringkat dunia', 'pro.item2': 'Pesta dunia (2–4 · 5 ronde)',
   'pro.item3': 'CPU master (2 dtk)', 'pro.item4': 'Rasio tangan lawan (✊✌️✋%)',
   'pro.item5': 'Bingkai gelar emas',
-  'settings.title': 'Setelan', 'settings.language': 'Bahasa', 'settings.sound': 'Suara', 'settings.soundTest': 'Uji suara',
-  'settings.stamps': 'Notifikasi stempel', 'settings.howto': 'Cara main', 'settings.privacy': 'Kebijakan privasi',
+  'settings.title': 'Setelan', 'settings.language': 'Bahasa', 'settings.sound': 'Suara', 'settings.stamps': 'Notifikasi stempel', 'settings.howto': 'Cara main', 'settings.privacy': 'Kebijakan privasi',
   'settings.reset': 'Hapus data latihan', 'settings.dataLocal': 'hanya ponsel ini', 'settings.version': 'Versi',
 
   'settings.nickname': 'Nama panggilan',

@@ -1,25 +1,45 @@
-# JANKeN PoN — iOS Build 4
+# JANKeN PoN — iOS Build 5
 
-『JANKeN PoN』は、世界の掛け声で遊ぶじゃんけんゲームです。Build 4 は、
-**結果画面の負けた回戦（LOSE）を赤枠で囲み、WIN の緑枠と並べて勝敗がひと目で分かるようにした版** です
-（App Store 提出 / TestFlight 配信まで持っていけます）。
+『JANKeN PoN』は、世界の掛け声で遊ぶじゃんけんゲームです。Build 5 は、
+**各国語のかけ声を本物の声（アプリに同梱した Neural Voice の mp3）で鳴らし、
+設定の「音をテスト」を外した版** です（App Store 提出 / TestFlight 配信まで持っていけます）。
 
 - アプリ名: **JANKeN PoN** / Bundle ID: **`jp.signlink.JankenPon`**
 - 課金: **`jp.signlink.JankenPon.pro`**（買い切り・StoreKit 2 / **¥300**）
-- 版: `MARKETING_VERSION = 1.0.0` / `CURRENT_PROJECT_VERSION = 4`
+- 版: `MARKETING_VERSION = 1.0.0` / `CURRENT_PROJECT_VERSION = 5`
 - 構成: 純粋な ES Modules + 静的アセット（ビルド不要）→ `www/` に写して Capacitor へ
 
 ```
-npm test        # ルール・通信・Build 1/2/3/4 仕様のテスト（231件）
+npm test        # ルール・通信・Build 1〜5 仕様のテスト（252件）
 npm run serve   # http://127.0.0.1:4173 で確認（file:// では ES Modules が動きません）
 npm run shots   # Chromium で操作テスト + スクショ（downloads/janken-b1-*.png）
 node tools/shots-b2.mjs  # Build 2 の見た目・操作（downloads/janken-b2-*.png）
 node tools/shots-b3.mjs  # Build 3 の見た目・操作（downloads/janken-b3-*.png・2ブラウザ対戦も）
 node tools/shots-b4.mjs  # Build 4 の結果画面（LOSE の赤枠・PKボードの赤枠／downloads/janken-b4-result.png）
+node tools/shots-b5.mjs  # Build 5 の声と設定（downloads/janken-b5-settings.png・janken-b5-chant.png）
+node tools/make-voices.mjs  # かけ声の mp3 を作り直す（edge-tts・assets/voices/）
 npm run e2e     # 2ブラウザ × 実 Supabase で合言葉の部屋を5回戦（手動の通し確認）
 npm run www     # 配布用 www/ を作る
 npm run ios:sync # cap sync ios（www → ios/App/App/public）
 ```
+
+## Build 5 の変更点（2026-11-22）
+
+1. **各国語のかけ声を、本物の声で鳴らす**: 実行時に音声合成を呼ぶのではなく、
+   **19か国ぶんの mp3 をアプリに同梱**（`assets/voices/{code}.mp3`）。Microsoft Edge の
+   Neural Voice（`tools/make-voices.mjs`・edge-tts）で、国データ（`src/countries.js` の `speech`）の
+   声と現地語テキストから作る。訛りのある国も、その国の声で読む。
+   - 再生は Web Audio（`fetch` → `decodeAudioData`・国ごとにキャッシュ）。decode できない
+     環境では同じファイルを `<audio>` で鳴らす。
+   - 鳴らすのは**いま表示しているかけ声の国**（自分 / かけ声切替ボタンで選んだ相手）。
+   - サウンド OFF では鳴らない。**「これで決定」・次のラウンド・結果・画面離脱・OFF** で
+     鳴っている声を止める（重ならない）。
+   - 試合開始時に自国と相手国の mp3 を先に読み込む。
+2. **設定の「音をテスト」を削除**: ボタン・処理・専用の見た目・12言語ぶんの文言を外した
+   （サウンド ON/OFF と Audio Session の初期化はそのまま）。
+3. **ビルド番号 5**: `CURRENT_PROJECT_VERSION = 5`（Debug / Release の2箇所）・アプリ側 `build: 5`・
+   設定の版表示 `(Build 5)`・`www/` を同期。テスト（`test/build5.test.js`）と
+   実ブラウザ確認（`tools/shots-b5.mjs`・15チェック）で固定。
 
 ## Build 4 の変更点（2026-11-22）
 
@@ -202,10 +222,10 @@ Português / Italiano / हिन्दी / Bahasa Indonesia。
 index.html              画面（ホーム / 1対1 / パーティー / 結果 / シート11種）
 styles.css              ライトテーマ（430x932 基準、小さい端末は @media で圧縮）
 src/core.js             ルール・ポイント・回戦・CPU・パーティー採点・通信検証（DOM 非依存）
-src/countries.js        19か国の旗・掛け声・色
+src/countries.js        19か国の旗・掛け声・色・声（speech）
 src/ranking.js          ライバル・部門/指標/範囲・通信の行のマージ
 src/storage.js          プロフィール保存（練習 / パーティー / 世界記録）・sanitize
-src/audio.js            Web Audio シンセ
+src/audio.js            Web Audio シンセ ＋ かけ声の mp3 再生（decode・キャッシュ・停止）
 src/i18n.js             12言語のUI文言と長文
 src/pro.js              StoreKit 2 の橋渡しと無料/PROの線引き
 src/online.js           Supabase Realtime（2人対戦・パーティー・ランキング）
@@ -216,14 +236,17 @@ test/build1.test.js     Build 1 仕様（50テスト）
 test/build2.test.js     Build 2 仕様（セーフエリア・文字サイズ・音・国籍ロック・左右・週間・PKボード・かけ声・選び直し・同時オープン・無料/PRO）
 test/build3.test.js     Build 3 仕様（音の原因・CPU 7/5/3/2秒・特大・手ごとの勝率・凡例・勝率5戦以上）
 test/build4.test.js     Build 4 仕様（結果画面 LOSE の赤枠・PKボードの赤枠・ビルド番号4・www 同期）
+test/build5.test.js     Build 5 仕様（19か国の声と mp3・再生/停止/重ならない・設定の削除・ビルド番号5）
 tools/online-e2e.mjs    2ブラウザ × 実 games-realtime の通し確認（手動）
 tools/serve.mjs         静的サーバー
 tools/shots.mjs         Chromium 操作テスト + スクショ（Build 1）
 tools/shots-b2.mjs      Chromium 操作テスト + スクショ（Build 2・セーフエリア想定）
 tools/shots-b3.mjs      Chromium 操作テスト + スクショ（Build 3）
 tools/shots-b4.mjs      Chromium 操作テスト + スクショ（Build 4・結果の LOSE 赤枠）
+tools/shots-b5.mjs      Chromium 操作テスト + スクショ（Build 5・声と設定）
 tools/preflight-local.py  ワークフローの preflight をローカルで通す（python3 tools/preflight-local.py .github/workflows/ios-testflight-build1.yml）
-tools/make-www.mjs      配布用 www/ の生成
+tools/make-www.mjs      配布用 www/ の生成（assets/voices も写す）
+tools/make-voices.mjs   かけ声の mp3 を国データから作る（edge-tts / assets/voices/）
 capacitor.config.json   appId / appName / webDir
 ios/                    Capacitor iOS プロジェクト（Bundle ID・アイコン・StoreKit・AVAudioSession）
 docs/ios-testflight-build2.yml  TestFlight ワークフロー（いま使う版・ビルド番号は pbxproj から自動）
@@ -249,9 +272,9 @@ docs/live-check.md      実 games-realtime での確認記録（2人対戦・3�
 preflight は、pbxproj の `CURRENT_PROJECT_VERSION` を読んで、2箇所（Debug/Release）が
 揃っていること・正の整数であることを確かめてから進みます。**ワークフロー側にはビルド番号を
 書きません**（Build 3 以降は pbxproj の番号を上げるだけ。`MARKETING_VERSION` も同じ場所から読みます）。
-Build 4 で上げた番号（4）は、いま GitHub にあるワークフローがそのまま読み取ります
+Build 5 で上げた番号（5）は、いま GitHub にあるワークフローがそのまま読み取ります
 （`python3 tools/preflight-local.py .github/workflows/ios-testflight-build1.yml` でローカル確認済み:
-preflight 全ステップ合格・ビルド番号 4）。**ワークフローファイルの貼り替えは要りません。**
+preflight 全ステップ合格・ビルド番号 5）。**ワークフローファイルの貼り替えは要りません。**
 
 ## 次の一歩（Build 2 の外）
 
@@ -259,4 +282,3 @@ preflight 全ステップ合格・ビルド番号 4）。**ワークフローフ
 - 世界ランキングのサーバー側集計（現在はチャンネル上の行の受け渡し＋ローカル）
 - 特殊ルール（ゾウ・人間・アリ / 井戸つき）の v1.1 復帰
 - 観戦モード、フレンド、月間・週間の切り替わり通知
-- 好みに合わせて: 選んだ手を「これで決定」で早く閉じるボタン（いまは締切まで待つ）

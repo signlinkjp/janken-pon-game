@@ -1003,9 +1003,6 @@ input { font-family: inherit; }
 }
 .set-row:active { background: #eef8ff; }
 .set-row__value { font-family: var(--font-en); font-size: calc(10.5px * var(--ts)); font-weight: 700; color: var(--ink-faint); letter-spacing: 0.06em; }
-/* Build 3: サウンドの下の「音をテスト」（補助の行なので少し小さく） */
-.set-row--sound-test { padding: 10px 14px; background: #ffffff; border-style: dashed; }
-.set-row--sound-test > span:first-child { font-size: calc(11px * var(--ts)); color: var(--ink-dim); }
 
 /* privacy */
 .sheet--legal .legal { font-size: calc(11px * var(--ts)); line-height: 1.85; color: var(--ink-dim); }

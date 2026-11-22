@@ -291,27 +291,11 @@ test('音: iOS 側は Audio Session を playback で起こし直し、JankenAudi
   assert.ok(swift.includes('CAPPluginMethod(name: "activate"'), 'activate を公開する');
 });
 
-test('音: main.js が操作・復帰・設定のテストで音を起こす', () => {
+test('音: main.js が操作と復帰で音を起こす', () => {
   const main = read('src/main.js');
   assert.ok(/pointerdown[\s\S]{0,160}sound\.unlock\(\)/.test(main), 'タップのたびに起こす');
   assert.ok(/visibilitychange[\s\S]{0,240}sound\.wake\(\)/.test(main), '復帰で起こし直す');
-  assert.ok(main.includes("$('#set-sound-test')"), '設定の「音をテスト」');
-  assert.ok(main.includes("sound.play('fanfare')"));
-  assert.ok(/sound\.sessionType/.test(main), 'Audio Session の種類を画面に出す');
-  /* タイトルのスピーカーボタンと設定の行は同じスイッチ */
-  assert.ok(/sound\.setMuted\(!soundOn\)/.test(main));
-});
-
-test('音: 設定に「音をテスト」の行があり、12言語ぶんの文言がある', () => {
-  const html = read('index.html');
-  assert.ok(html.includes('id="set-sound-test"'));
-  assert.ok(html.includes('id="set-sound-test-state"'));
-  assert.ok(KEYS.includes('settings.soundTest'));
-  for (const locale of LOCALES) {
-    const value = DICT[locale.id]['settings.soundTest'];
-    assert.equal(typeof value, 'string', `${locale.id}`);
-    assert.ok(value.trim().length > 0, `${locale.id} が空`);
-  }
+  assert.ok(/sound\.setMuted\(!soundOn\)/.test(main), '設定の ON/OFF は音のゲート');
 });
 
 /* ================================================================== *\
@@ -494,14 +478,14 @@ test('勝率: 画面に「5戦以上で対象」と「あとN戦」が出る', (
  * 7. ビルド番号とワークフロー
  * ================================================================== */
 
-test('ビルド: アプリも iOS プロジェクトも Build 4', () => {
+test('ビルド: アプリも iOS プロジェクトも Build 5', () => {
   const pbx = read('ios/App/App.xcodeproj/project.pbxproj');
   const numbers = [...pbx.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map((m) => Number(m[1]));
   assert.equal(numbers.length, 2, 'Debug / Release の2箇所');
-  assert.deepEqual(numbers, [4, 4]);
+  assert.deepEqual(numbers, [5, 5]);
   assert.ok(pbx.includes('MARKETING_VERSION = 1.0.0;'));
-  assert.ok(/version: '1\.0\.0',\s*build: 4,/.test(read('src/main.js')));
-  assert.ok(read('index.html').includes('(Build 4)'));
+  assert.ok(/version: '1\.0\.0',\s*build: 5,/.test(read('src/main.js')));
+  assert.ok(read('index.html').includes('(Build 5)'));
 });
 
 test('ワークフロー: docs/ios-testflight-build3.yml は番号を自動で読み、Build 3 の検査を持つ', () => {

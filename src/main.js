@@ -207,6 +207,8 @@ const P = (key) => i18n.prose(key, app.locale);
  * ------------------------------------------------------------------ */
 
 function showScreen(name) {
+  /* Build 5: プレイ画面を離れるときは、鳴っているかけ声を止める */
+  if (name !== 'play') sound.stopVoice();
   app.view = name;
   $$('.screen').forEach((screen) => {
     screen.classList.toggle('is-active', screen.id === `screen-${name}`);
@@ -879,6 +881,8 @@ function renderPk() {
 }
 
 function resetArena() {
+  /* Build 5: 次のラウンドに入る前に、前のラウンドの声を止める */
+  sound.stopVoice();
   $('#cpu-pod').classList.remove('is-revealed');
   $('#you-pod').classList.remove('is-revealed');
   const verdict = $('#verdict');
@@ -951,6 +955,7 @@ function startMatch({
   renderPlayChrome();
   showScreen('play');
   sound.play('whoosh');
+  sound.preloadVoice([app.profile.countryCode, opponent.code]);
   beginRound();
   setTimeout(() => receiveStamp('hello'), 700);
 }
@@ -986,6 +991,7 @@ function startOnlineMatch(opponent) {
   renderPlayChrome();
   showScreen('play');
   sound.play('whoosh');
+  sound.preloadVoice([app.profile.countryCode, country.code]);
   beginRound();
 }
 
@@ -1120,6 +1126,8 @@ async function commitRound({ timedOut = false } = {}) {
   const isTimeout = Boolean(timedOut || resolvedTimeout);
   stopTimer();
   app.phase = 'chant';
+  /* Build 5: 決定したら、それまで鳴っていた声を止めてから「ぽん！」へ */
+  sound.stopVoice();
   app.pickedHand = hand;
   app.timedOut = isTimeout;
   renderLockButton();
@@ -1178,6 +1186,9 @@ async function runChant({ onFinal = null } = {}) {
   const big = $$('#big-chant .chant__w');
   const count = Math.max(small.length, big.length);
   const step = CHANT_MS / Math.max(1, count);
+  /* Build 5: いま表示しているかけ声の国（自分 / 切替ボタンで選んだ相手）の声で読む。
+     前のラウンドの声が残っていても、playVoice が先に止めてから鳴らす。 */
+  sound.playVoice(chantCountry().code)?.catch?.(() => {});
   for (let i = 0; i < count; i += 1) {
     $$('.chant__w').forEach((word) => word.classList.remove('is-active'));
     small[i]?.classList.add('is-active');
@@ -1932,6 +1943,8 @@ function toggleStampsMuted() {
 
 function finishMatch() {
   app.phase = 'done';
+  /* Build 5: 結果へ移る前に、鳴っているかけ声を止める */
+  sound.stopVoice();
   const summary = matchSummary(app.match);
   const division = divisionForRounds(app.match.rounds);
   const ranked = app.matchKind === 'online';
@@ -2941,16 +2954,6 @@ function bindEvents() {
     sound.unlock();
   });
 
-  /* 設定の「音をテスト」— その場で鳴らして、Audio Session の状態も見せる */
-  $('#set-sound-test')?.addEventListener('click', () => {
-    sound.unlock();
-    sound.play('fanfare');
-    const out = $('#set-sound-test-state');
-    const running = sound.state === 'running';
-    if (out) out.textContent = running ? `▶ ${sound.sessionType ?? 'web'}` : `× ${sound.state}`;
-    if (!running) toast('音を出せませんでした（端末の消音・音量を確かめてください）', 2200);
-  });
-
   /* iOS で戻ってきたとき、ソケットと音を起こし直す */
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
@@ -2999,7 +3002,7 @@ function boot() {
 
   window.JANKeNPoN = {
     version: '1.0.0',
-    build: 4,
+    build: 5,
     get profile() {
       return app.profile;
     },
@@ -3025,6 +3028,8 @@ function boot() {
         unlocked: sound.unlocked,
         silenceActive: sound.silenceActive,
         gain: sound.gain,
+        /* Build 5: いま鳴っているかけ声の国コード（鳴っていなければ null） */
+        voice: sound.voice,
       };
     },
     unlockAudio: () => sound.unlock(),

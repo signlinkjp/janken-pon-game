@@ -44,22 +44,44 @@ export const NATIVE_PLUGIN = 'JankenAudio';
 /** サウンド OFF のときに戻す種類（ほかのアプリの音と混ざる） */
 export const QUIET_SESSION_TYPE = 'ambient';
 
+/* Build 5: かけ声の音声は、実行時に合成せず、アプリに同梱した mp3 を鳴らす。
+   assets/voices/{code}.mp3（国コード小文字）を fetch → decodeAudioData で
+   読み込み、Web Audio のゲート（サウンド ON/OFF と同じ）を通して再生する。
+   端末や WebView が decode できないときは <audio> で同じファイルを鳴らす。 */
+export const VOICE_DIR = 'assets/voices';
+/** これ未満は空・壊れたファイルとみなす（tools/make-voices.mjs と同じ基準） */
+export const VOICE_MIN_BYTES = 4000;
+
+/** かけ声の音声ファイルの場所（国コードは小文字） */
+export function voiceAsset(code, base = VOICE_DIR) {
+  return `${base}/${String(code || '').toLowerCase()}.mp3`;
+}
+
 export function createAudioEngine({
   AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext,
   volume = 0.9,
   muted = false,
   mediaElementClass = typeof globalThis.Audio === 'function' ? globalThis.Audio : null,
   session = null,
+  voiceBase = VOICE_DIR,
+  fetchImpl = typeof globalThis.fetch === 'function' ? globalThis.fetch.bind(globalThis) : null,
+  voiceElementClass = typeof globalThis.Audio === 'function' ? globalThis.Audio : null,
 } = {}) {
   let ctx = null;
   let master = null;
   let gate = null;
+  let voiceGain = null;
   let noiseBuffer = null;
   let isMuted = Boolean(muted);
   let primed = false;
   let silence = null;
   let silenceActive = false;
   let sessionType = null;
+
+  /* かけ声の音声（Build 5） */
+  const voiceCache = new Map();
+  let voicePlaying = null;
+  let voiceToken = 0;
 
   /* マスターの基準音量。ミュートはゲート（別の Gain）で 0 にする */
   const baseGain = 0.22 * volume;
@@ -142,10 +164,14 @@ export function createAudioEngine({
       master.gain.value = baseGain;
       gate = ctx.createGain();
       gate.gain.value = isMuted ? 0 : 1;
+      voiceGain = ctx.createGain();
+      voiceGain.gain.value = 0.9;
       master.connect(gate).connect(ctx.destination);
+      voiceGain.connect(gate);
     } catch {
       master = null;
       gate = null;
+      voiceGain = null;
     }
     try {
       if (typeof ctx.addEventListener === 'function') {
@@ -170,8 +196,10 @@ export function createAudioEngine({
       ctx = null;
       master = null;
       gate = null;
+      voiceGain = null;
       noiseBuffer = null;
       primed = false;
+      voiceCache.clear();
     }
     if (!ctx) build();
     if (!ctx) return null;
@@ -269,6 +297,113 @@ export function createAudioEngine({
     src.connect(filter).connect(amp).connect(master);
     src.start(t0);
     src.stop(t0 + dur + 0.05);
+  }
+
+  /* ---------------------------------------------------------------- *\
+   * かけ声の音声（Build 5）
+   * ---------------------------------------------------------------- */
+
+  /** ArrayBuffer → AudioBuffer。decodeAudioData は約束を返す実装とコールバックの実装がある */
+  function decode(data) {
+    return new Promise((resolve, reject) => {
+      try {
+        const maybe = ctx.decodeAudioData(data, resolve, reject);
+        if (maybe && typeof maybe.then === 'function') maybe.then(resolve, reject);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  /** 国コードの mp3 を読む（同じ国は1回だけ。失敗はキャッシュしない） */
+  function loadVoiceBuffer(key) {
+    if (!key || !fetchImpl) return Promise.resolve(null);
+    if (voiceCache.has(key)) return voiceCache.get(key);
+    if (!ctx || typeof ctx.decodeAudioData !== 'function') return Promise.resolve(null);
+    const promise = (async () => {
+      const response = await fetchImpl(voiceAsset(key, voiceBase));
+      if (!response || !response.ok) throw new Error(`voice ${key}: ${response?.status ?? 'no response'}`);
+      return await decode(await response.arrayBuffer());
+    })().catch(() => {
+      voiceCache.delete(key);
+      return null;
+    });
+    voiceCache.set(key, promise);
+    return promise;
+  }
+
+  /** decode できない環境（古い WebView・CORS など）の代わり。同じ mp3 を <audio> で鳴らす */
+  function playVoiceElement(key) {
+    if (!voiceElementClass) return false;
+    try {
+      const element = new voiceElementClass(voiceAsset(key, voiceBase));
+      element.preload = 'auto';
+      try {
+        element.setAttribute('playsinline', '');
+        element.setAttribute('webkit-playsinline', '');
+      } catch {
+        /* 属性が無くても再生はできる */
+      }
+      const started = typeof element.play === 'function' ? element.play() : null;
+      if (started && typeof started.catch === 'function') started.catch(() => {});
+      voicePlaying = { code: key, source: null, element };
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** 鳴っているかけ声を止める（次のラウンド・即オープン・画面離脱・サウンド OFF） */
+  function stopVoice() {
+    voiceToken += 1;
+    const playing = voicePlaying;
+    voicePlaying = null;
+    if (!playing) return false;
+    try {
+      playing.source?.stop();
+    } catch {
+      /* すでに終わっていても落とさない */
+    }
+    try {
+      playing.element?.pause();
+    } catch {
+      /* 同上 */
+    }
+    return true;
+  }
+
+  /** かけ声の mp3 を、サウンド設定のゲートを通して鳴らす */
+  async function playVoice(code) {
+    const key = String(code || '').toLowerCase();
+    /* 鳴っている声は必ず先に止める（重ならない） */
+    stopVoice();
+    if (!key || isMuted) return false;
+    const token = voiceToken;
+    const context = ensure();
+    if (!context) return playVoiceElement(key);
+    const buffer = await loadVoiceBuffer(key);
+    if (!buffer) return token === voiceToken && !isMuted ? playVoiceElement(key) : false;
+    if (token !== voiceToken || isMuted) return false;
+    if (!gate) return playVoiceElement(key);
+    try {
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(voiceGain ?? gate);
+      source.onended = () => {
+        if (voicePlaying && voicePlaying.source === source) voicePlaying = null;
+      };
+      voicePlaying = { code: key, source, element: null };
+      source.start(0);
+      return true;
+    } catch {
+      return playVoiceElement(key);
+    }
+  }
+
+  /** 次のラウンドに備えて先に読み込む（失敗しても何もしない） */
+  function preloadVoice(codes) {
+    const list = Array.isArray(codes) ? codes : [codes];
+    return Promise.all(list.map((code) => loadVoiceBuffer(String(code || '').toLowerCase()))).then(() => true);
   }
 
   const sounds = {
@@ -394,6 +529,7 @@ export function createAudioEngine({
       if (isMuted) {
         rampMaster(0);
         stopSilence();
+        stopVoice();
         applySessionType(QUIET_SESSION_TYPE);
       } else {
         applySessionType(AUDIO_SESSION_TYPE);
@@ -405,6 +541,21 @@ export function createAudioEngine({
       }
       return isMuted;
     },
+    /**
+     * かけ声の音声（Build 5）。国コードを渡すと assets/voices/{code}.mp3 を鳴らす。
+     * 鳴っている声は先に止める。サウンド OFF のときは何もしない。
+     */
+    playVoice,
+    /** 鳴っているかけ声を止める（次のラウンド・即オープン・画面離脱） */
+    stopVoice,
+    /** 先に読み込んでおく（自国と相手国。失敗しても無視） */
+    preloadVoice,
+    /** いま鳴っているかけ声の国コード（鳴っていなければ null） */
+    get voice() {
+      return voicePlaying ? voicePlaying.code : null;
+    },
+    /** 音声の元ファイルの場所（テスト・道具から同じ規則を使う） */
+    voiceAsset,
     get muted() {
       return isMuted;
     },
