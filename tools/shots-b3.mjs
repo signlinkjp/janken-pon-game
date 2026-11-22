@@ -129,6 +129,28 @@ async function main() {
     check('特大: 横にはみ出さない', home.overflowX <= 1, home.overflowX);
     await page.screenshot({ path: resolve(OUT, 'janken-b3-home-xlarge.png') });
 
+    /* ---------------- 1b. 音（音をテスト・ON/OFF） ---------------- */
+    step('sound test');
+    await page.evaluate(() => window.JANKeNPoN.openSheet('settings'));
+    await page.click('#set-sound-test');
+    await page.waitForTimeout(300);
+    const soundOn = await page.evaluate(() => ({
+      ...window.JANKeNPoN.audio,
+      text: document.querySelector('#set-sound-test-state').textContent,
+    }));
+    check('音: 「音をテスト」で AudioContext が動く', soundOn.state === 'running', soundOn);
+    check('音: テストの表示が出る', soundOn.text.length > 0, soundOn);
+    await page.click('#set-sound');
+    await page.waitForTimeout(150);
+    const muted = await page.evaluate(() => ({ ...window.JANKeNPoN.audio, sound: window.JANKeNPoN.profile.sound }));
+    check('音: OFF でゲートが 0', muted.sound === false && muted.gain === 0, muted);
+    await page.click('#set-sound');
+    await page.waitForTimeout(150);
+    const unmuted = await page.evaluate(() => ({ ...window.JANKeNPoN.audio, sound: window.JANKeNPoN.profile.sound }));
+    check('音: ON に戻すとゲートが 1', unmuted.sound === true && unmuted.gain === 1, unmuted);
+    await page.click('#sheet-settings [data-close]');
+    await page.waitForTimeout(150);
+
     /* ---------------- 2. 戦績（チョキ1行・手ごとの勝率） ---------------- */
     step('stats / xlarge');
     await page.evaluate(() => {
