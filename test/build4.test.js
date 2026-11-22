@@ -115,24 +115,24 @@ test('PK履歴: セルは勝敗で is-win / is-lose / is-tie を付ける', () =
  * 3. ビルド番号 4
  * ================================================================== */
 
-test('ビルド: iOS プロジェクトもアプリも Build 5', () => {
+test('ビルド: iOS プロジェクトもアプリも Build 6', () => {
   const pbx = read('ios/App/App.xcodeproj/project.pbxproj');
   const numbers = [...pbx.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map((m) => Number(m[1]));
   assert.equal(numbers.length, 2, 'Debug / Release の2箇所');
-  assert.deepEqual(numbers, [5, 5], '2箇所とも 5');
+  assert.deepEqual(numbers, [6, 6], '2箇所とも 6');
   assert.ok(pbx.includes('MARKETING_VERSION = 1.0.0;'), '表示バージョンは 1.0.0 のまま');
-  assert.ok(/version: '1\.0\.0',\s*build: 5,/.test(MAIN), 'アプリ側の build も 5');
-  assert.ok(read('index.html').includes('(Build 5)'), '設定の版表示も Build 5');
+  assert.ok(/version: '1\.0\.0',\s*build: 6,/.test(MAIN), 'アプリ側の build も 6');
+  assert.ok(read('index.html').includes('(Build 6)'), '設定の版表示も Build 6');
 });
 
-test('www: 配布用の写しも Build 5（node tools/make-www.mjs で同期）', async () => {
+test('www: 配布用の写しも Build 6（node tools/make-www.mjs で同期）', async () => {
   /* www/ はリポジトリに入れない（.gitignore）ので、ここで作ってから見る。
      CI でも preflight の「Guard the shipped game files」と同じものを作る。 */
   const { makeWww } = await import('../tools/make-www.mjs');
   await makeWww();
   assert.ok(exists('www/index.html'), 'www/ がある');
-  assert.ok(read('www/index.html').includes('(Build 5)'), 'www の版表示も Build 5');
-  assert.ok(/version: '1\.0\.0',\s*build: 5,/.test(read('www/src/main.js')), 'www の main.js も 5');
+  assert.ok(read('www/index.html').includes('(Build 6)'), 'www の版表示も Build 6');
+  assert.ok(/version: '1\.0\.0',\s*build: 6,/.test(read('www/src/main.js')), 'www の main.js も 6');
   assert.ok(
     read('www/styles.css').includes('.round-row.is-lose { border-color: rgba(221, 59, 59, 0.28);'),
     'www の CSS も赤枠',
@@ -143,8 +143,8 @@ test('www: 配布用の写しも Build 5（node tools/make-www.mjs で同期）'
  * 4. ワークフロー（ビルド番号は自動読み取り・固定値を持たない）
  * ================================================================== */
 
-test('ワークフロー: いま GitHub にある見張りは Build 5 をそのまま通す', () => {
-  /* 番号は pbxproj から読むので、Build 5 に上げてもワークフローは書き換え不要。 */
+test('ワークフロー: いま GitHub にある見張りは Build 6 をそのまま通す', () => {
+  /* 番号は pbxproj から読むので、Build 6 に上げてもワークフローは書き換え不要。 */
   const yml = read('.github/workflows/ios-testflight-build1.yml');
   assert.equal(/BUILD_NUMBER:\s*"\d+"/.test(yml), false, 'BUILD_NUMBER を固定文字列で持たない');
   assert.ok(yml.includes('CURRENT_PROJECT_VERSION'), 'pbxproj から読む');

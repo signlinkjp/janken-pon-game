@@ -1,27 +1,48 @@
-# JANKeN PoN — iOS Build 5
+# JANKeN PoN — iOS Build 6
 
-『JANKeN PoN』は、世界の掛け声で遊ぶじゃんけんゲームです。Build 5 は、
-**各国語のかけ声を本物の声（アプリに同梱した Neural Voice の mp3）で鳴らし、
-設定の「音をテスト」を外した版** です（App Store 提出 / TestFlight 配信まで持っていけます）。
+『JANKeN PoN』は、世界の掛け声で遊ぶじゃんけんゲームです。Build 6 は、
+**プレイ中にワンタップでサウンド／かけ声を ON/OFF できるボタンを足した、
+`1.0.0` App Store 審査提出用の最終ビルド** です（1対1・パーティー共通、設定のサウンドと同じ値）。
 
 - アプリ名: **JANKeN PoN** / Bundle ID: **`jp.signlink.JankenPon`**
 - 課金: **`jp.signlink.JankenPon.pro`**（買い切り・StoreKit 2 / **¥300**）
-- 版: `MARKETING_VERSION = 1.0.0` / `CURRENT_PROJECT_VERSION = 5`
+- 版: `MARKETING_VERSION = 1.0.0` / `CURRENT_PROJECT_VERSION = 6`
 - 構成: 純粋な ES Modules + 静的アセット（ビルド不要）→ `www/` に写して Capacitor へ
 
 ```
-npm test        # ルール・通信・Build 1〜5 仕様のテスト（252件）
+npm test        # ルール・通信・Build 1〜6 仕様のテスト（264件）
 npm run serve   # http://127.0.0.1:4173 で確認（file:// では ES Modules が動きません）
 npm run shots   # Chromium で操作テスト + スクショ（downloads/janken-b1-*.png）
 node tools/shots-b2.mjs  # Build 2 の見た目・操作（downloads/janken-b2-*.png）
 node tools/shots-b3.mjs  # Build 3 の見た目・操作（downloads/janken-b3-*.png・2ブラウザ対戦も）
 node tools/shots-b4.mjs  # Build 4 の結果画面（LOSE の赤枠・PKボードの赤枠／downloads/janken-b4-result.png）
 node tools/shots-b5.mjs  # Build 5 の声と設定（downloads/janken-b5-settings.png・janken-b5-chant.png）
+node tools/shots-b6.mjs  # Build 6 のサウンド切替と提出用スクショ（downloads/janken-b6-*.png・1320×2868）
 node tools/make-voices.mjs  # かけ声の mp3 を作り直す（edge-tts・assets/voices/）
 npm run e2e     # 2ブラウザ × 実 Supabase で合言葉の部屋を5回戦（手動の通し確認）
 npm run www     # 配布用 www/ を作る
 npm run ios:sync # cap sync ios（www → ios/App/App/public）
 ```
+
+## Build 6 の変更点（2026-11-23）
+
+トモアキさんの要望「プレイゲーム画面にかけ声or音楽のオンオフボタンをお願いします。設定ボタンでも良いですし」。
+`1.0.0` の App Store 審査提出用の最終ビルド。
+
+1. **プレイ中のサウンド／かけ声 ON/OFF**: 1対1のプレイ画面ヘッダー（スコアの手前）に、
+   **🔊 ON / 🔇 OFF** の小さなトグルを置いた。押すと **設定 › サウンドと同じ値**が変わり、
+   - OFF にした瞬間、鳴っているかけ声も効果音も止まる（`setMuted` のゲートが 0 に）
+   - ON に戻すとすぐ鳴り、次のラウンドからかけ声が鳴る
+   - 設定の行から切り替えても、プレイ中のボタンが同じ見た目に変わる（双方向）
+   パーティー画面のヘッダーにも同じボタン（CPU練習・通信対戦・パーティーで同じ操作）。
+2. **特大文字でも崩れない**: 音のボタンは縮めず（`flex: none`）、ラウンドの点（pips）が
+   22px を上限に縮んで場所をあける。393 / 375 幅・特大（`--ts: 1.32`）で、
+   ヘッダーのはみ出し・要素の重なりが 0 であることを `tools/shots-b6.mjs` が確かめる。
+3. **ビルド番号 6**: `CURRENT_PROJECT_VERSION = 6`（Debug / Release の2箇所）・アプリ側 `build: 6`・
+   設定の版表示 `(Build 6)`・`www/` を同期。テスト（`test/build6.test.js` 12件）と
+   実ブラウザ確認（`tools/shots-b6.mjs`・31チェック）で固定。
+4. **App Store 1.0.0 提出用の文面**: `docs/app-store-1.0.0.md`（日本語・英語の説明、サブタイトル、
+   プロモーション用テキスト、キーワード、審査メモ、App Privacy の回答、スクショ一覧）。
 
 ## Build 5 の変更点（2026-11-22）
 
@@ -237,6 +258,7 @@ test/build2.test.js     Build 2 仕様（セーフエリア・文字サイズ・
 test/build3.test.js     Build 3 仕様（音の原因・CPU 7/5/3/2秒・特大・手ごとの勝率・凡例・勝率5戦以上）
 test/build4.test.js     Build 4 仕様（結果画面 LOSE の赤枠・PKボードの赤枠・ビルド番号4・www 同期）
 test/build5.test.js     Build 5 仕様（19か国の声と mp3・再生/停止/重ならない・設定の削除・ビルド番号5）
+test/build6.test.js     Build 6 仕様（プレイ中のサウンド ON/OFF・設定との同期・特大ヘッダー・ビルド番号6）
 tools/online-e2e.mjs    2ブラウザ × 実 games-realtime の通し確認（手動）
 tools/serve.mjs         静的サーバー
 tools/shots.mjs         Chromium 操作テスト + スクショ（Build 1）
@@ -244,6 +266,7 @@ tools/shots-b2.mjs      Chromium 操作テスト + スクショ（Build 2・セ�
 tools/shots-b3.mjs      Chromium 操作テスト + スクショ（Build 3）
 tools/shots-b4.mjs      Chromium 操作テスト + スクショ（Build 4・結果の LOSE 赤枠）
 tools/shots-b5.mjs      Chromium 操作テスト + スクショ（Build 5・声と設定）
+tools/shots-b6.mjs      Chromium 操作テスト + スクショ（Build 6・サウンド切替・提出用 1320×2868）
 tools/preflight-local.py  ワークフローの preflight をローカルで通す（python3 tools/preflight-local.py .github/workflows/ios-testflight-build1.yml）
 tools/make-www.mjs      配布用 www/ の生成（assets/voices も写す）
 tools/make-voices.mjs   かけ声の mp3 を国データから作る（edge-tts / assets/voices/）
@@ -252,6 +275,7 @@ ios/                    Capacitor iOS プロジェクト（Bundle ID・アイコ
 docs/ios-testflight-build2.yml  TestFlight ワークフロー（いま使う版・ビルド番号は pbxproj から自動）
 docs/ios-testflight-build1.yml  Build 1 の履歴（そのまま残す）
 docs/privacy.md         プライバシーポリシー全文（日英）
+docs/app-store-1.0.0.md App Store 1.0.0 の提出用文面（日英）・審査メモ・App Privacy・スクショ一覧
 docs/live-check.md      実 games-realtime での確認記録（2人対戦・3人パーティー・画面通し）
 ```
 
@@ -272,13 +296,13 @@ docs/live-check.md      実 games-realtime での確認記録（2人対戦・3�
 preflight は、pbxproj の `CURRENT_PROJECT_VERSION` を読んで、2箇所（Debug/Release）が
 揃っていること・正の整数であることを確かめてから進みます。**ワークフロー側にはビルド番号を
 書きません**（Build 3 以降は pbxproj の番号を上げるだけ。`MARKETING_VERSION` も同じ場所から読みます）。
-Build 5 で上げた番号（5）は、いま GitHub にあるワークフローがそのまま読み取ります
+Build 6 で上げた番号（6）も、いま GitHub にあるワークフローがそのまま読み取ります
 （`python3 tools/preflight-local.py .github/workflows/ios-testflight-build1.yml` でローカル確認済み:
-preflight 全ステップ合格・ビルド番号 5）。**ワークフローファイルの貼り替えは要りません。**
+preflight 全ステップ合格・ビルド番号 6）。**ワークフローファイルの貼り替えは要りません。**
 
 ## 次の一歩（Build 2 の外）
 
-- App Store 用スクショ（6.9 / 6.5 インチ）とプライバシーマニフェスト（`PrivacyInfo.xcprivacy`）
+- プライバシーマニフェスト（`PrivacyInfo.xcprivacy`）・6.5インチ用スクショの書き出し
 - 世界ランキングのサーバー側集計（現在はチャンネル上の行の受け渡し＋ローカル）
 - 特殊ルール（ゾウ・人間・アリ / 井戸つき）の v1.1 復帰
 - 観戦モード、フレンド、月間・週間の切り替わり通知

@@ -196,6 +196,10 @@
         <button class="icon-btn icon-btn--ghost" id="btn-stamp" type="button" aria-label="スタンプ">
           <img src="assets/icons/1f4ac.svg" alt="" />
         </button>
+        <button class="soundbtn" id="btn-play-sound" type="button" aria-pressed="true" aria-label="サウンド: ON">
+          <img id="play-sound-icon" src="assets/icons/1f50a.svg" alt="" />
+          <span class="soundbtn__label" id="play-sound-label">ON</span>
+        </button>
         <div class="play-head__score">
           <b id="play-points">0</b><span>pt</span>
           <em id="play-cpu">CPU 0</em>
@@ -304,6 +308,10 @@
         <button class="icon-btn icon-btn--ghost" id="btn-party-quit" type="button" aria-label="退出">✕</button>
         <div class="party-head__round" id="party-round-label">ROUND 1 / 5</div>
         <div class="pips" id="party-pips" aria-label="ラウンド進行"></div>
+        <button class="soundbtn" id="btn-party-sound" type="button" aria-pressed="true" aria-label="サウンド: ON">
+          <img id="party-sound-icon" src="assets/icons/1f50a.svg" alt="" />
+          <span class="soundbtn__label" id="party-sound-label">ON</span>
+        </button>
         <div class="play-head__score">
           <b id="party-my-points">0</b><span>pt</span>
           <em data-i18n="party.unrankedShort">ランキング対象外</em>
@@ -695,7 +703,7 @@
               <span data-i18n="settings.privacy">プライバシーポリシー</span><span class="set-row__value">›</span>
             </button>
           </div>
-          <p class="sheet__note">JANKeN PoN 1.0.0 (Build 5) ・ T-maks Games ・ 自由入力のチャットはありません。</p>
+          <p class="sheet__note">JANKeN PoN 1.0.0 (Build 6) ・ T-maks Games ・ 自由入力のチャットはありません。</p>
         </section>
 
         <section class="sheet" id="sheet-language" data-sheet="language" hidden>

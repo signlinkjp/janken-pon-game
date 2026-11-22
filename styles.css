@@ -364,9 +364,24 @@ input { font-family: inherit; }
 
 .play-head { display: flex; align-items: center; gap: 8px; flex: none; }
 .play-head .icon-btn { width: 32px; height: 32px; border-radius: 11px; font-size: calc(12px * var(--ts)); }
-.pips { display: flex; gap: 5px; flex: 1; justify-content: center; }
+
+/* Build 6: プレイ中のサウンド／かけ声 ON/OFF（設定のサウンドと同じ値・ワンタップ） */
+.soundbtn {
+  display: flex; align-items: center; gap: 3px; flex: none;
+  height: 32px; padding: 0 7px; border-radius: 11px;
+  background: #ffffff; border: 1px solid var(--stroke-strong);
+  color: var(--ink-dim);
+  font-family: var(--font-en); font-weight: 800;
+  font-size: calc(8.5px * var(--ts)); letter-spacing: 0.02em; line-height: 1;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.soundbtn img { width: 14px; height: 14px; opacity: 0.92; }
+.soundbtn:active { transform: scale(0.94); background: #f2f9ff; }
+.soundbtn.is-muted { background: #f4f7fb; border-color: var(--stroke); color: var(--ink-faint); }
+.soundbtn.is-muted img { opacity: 0.55; }
+.pips { display: flex; gap: 5px; flex: 1; min-width: 0; justify-content: center; }
 .pip {
-  width: 22px; height: 6px; border-radius: 999px;
+  flex: 0 1 22px; min-width: 6px; height: 6px; border-radius: 999px;
   background: #dbe7f5;
   transition: background 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
 }

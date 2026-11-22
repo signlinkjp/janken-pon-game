@@ -659,13 +659,60 @@ function armPracticeReset() {
   toast(T('toast.resetDone'));
 }
 
+/* Build 6: サウンド／かけ声の ON/OFF。設定の行とプレイ中のボタンは同じ値を見る */
+function soundAriaLabel(on) {
+  return `${T('settings.sound')}: ${on ? T('misc.on') : T('misc.off')}`;
+}
+
+/** プレイ中（1対1・パーティー）のトグルを、いまのサウンド設定に合わせる */
+function paintSoundToggles() {
+  const on = Boolean(app.profile.sound);
+  const label = on ? T('misc.on') : T('misc.off');
+  const icon = on ? 'assets/icons/1f50a.svg' : 'assets/icons/1f507.svg';
+  const aria = soundAriaLabel(on);
+  for (const [buttonId, iconId, labelId] of [
+    ['#btn-play-sound', '#play-sound-icon', '#play-sound-label'],
+    ['#btn-party-sound', '#party-sound-icon', '#party-sound-label'],
+  ]) {
+    const button = $(buttonId);
+    if (!button) continue;
+    button.classList.toggle('is-muted', !on);
+    button.setAttribute('aria-pressed', String(on));
+    button.setAttribute('aria-label', aria);
+    const image = $(iconId);
+    if (image) image.src = icon;
+    const text = $(labelId);
+    if (text) text.textContent = label;
+  }
+}
+
+/**
+ * サウンド ON/OFF を切り替える（設定・プレイ中・パーティーのどこから押しても同じ）。
+ * OFF にした瞬間に鳴っている音（かけ声を含む）は止まり、ON に戻すとすぐ鳴る。
+ */
+function toggleSound({ announce = true } = {}) {
+  const soundOn = !app.profile.sound;
+  persist({ ...app.profile, sound: soundOn });
+  /* 実際の音量はここで切り替える（鳴っている途中の音も止まる） */
+  sound.setMuted(!soundOn);
+  if (soundOn) {
+    sound.unlock();
+    sound.play('select');
+  }
+  renderSoundButton();
+  renderSettings();
+  if (announce) toast(`${T('settings.sound')} ${soundOn ? T('misc.on') : T('misc.off')}`, 1200);
+  return soundOn;
+}
+
 function renderSoundButton() {
   const button = $('#btn-sound');
   button.classList.toggle('is-muted', !app.profile.sound);
-  button.setAttribute('aria-label', app.profile.sound ? 'サウンドを消す' : 'サウンドを出す');
+  button.setAttribute('aria-label', soundAriaLabel(app.profile.sound));
   button.setAttribute('aria-pressed', String(Boolean(app.profile.sound)));
   const state = $('#set-sound-state');
   if (state) state.textContent = app.profile.sound ? T('misc.on') : T('misc.off');
+  paintSoundToggles();
   renderBell();
 }
 
@@ -763,6 +810,7 @@ function renderPlayChrome() {
 
   renderPips();
   renderBell();
+  paintSoundToggles();
   renderStampGrid();
   $('#play-points').textContent = '0';
   $('#play-cpu').textContent = onlineMatch ? `${app.online.opponent?.nickname ?? 'OPP'} 0` : 'CPU 0';
@@ -1594,6 +1642,7 @@ function renderPartyChrome() {
   const me = countryByCode(app.profile.countryCode);
   $('#party-round-label').textContent = `ROUND ${app.party.round + 1} / ${PARTY_ROUNDS}`;
   $('#party-my-points').textContent = formatPoints(app.party.points.get(selfKey()) ?? 0);
+  paintSoundToggles();
   const pips = $('#party-pips');
   pips.innerHTML = '';
   for (let i = 0; i < PARTY_ROUNDS; i += 1) {
@@ -2810,19 +2859,10 @@ function bindEvents() {
   $('#btn-pro-restore').addEventListener('click', restorePro);
   $('#btn-rank-pro').addEventListener('click', () => openSheet('pro', { nested: true }));
 
-  $('#btn-sound').addEventListener('click', () => {
-    const soundOn = !app.profile.sound;
-    persist({ ...app.profile, sound: soundOn });
-    /* 実際の音量はここで切り替える（鳴っている途中の音も止まる） */
-    sound.setMuted(!soundOn);
-    if (soundOn) {
-      sound.unlock();
-      sound.play('select');
-    }
-    renderSoundButton();
-    renderSettings();
-    toast(soundOn ? 'サウンド ON' : 'サウンド OFF', 1200);
-  });
+  $('#btn-sound').addEventListener('click', () => toggleSound());
+  /* Build 6: プレイ中・パーティーのヘッダーからも、同じサウンド設定を切り替える */
+  $('#btn-play-sound')?.addEventListener('click', () => toggleSound());
+  $('#btn-party-sound')?.addEventListener('click', () => toggleSound());
 
   /* これで決定（ロック）。押した瞬間に確定し、CPU はすぐ「ぽん！」、
      通信は「相手を待っています」になる（相手も決めたら即オープン） */
@@ -3002,7 +3042,7 @@ function boot() {
 
   window.JANKeNPoN = {
     version: '1.0.0',
-    build: 5,
+    build: 6,
     get profile() {
       return app.profile;
     },
@@ -3020,6 +3060,11 @@ function boot() {
     },
     setTextScale: changeTextScale,
     toggleChantSide,
+    /* Build 6: プレイ中のサウンド ON/OFF（設定と同じ） */
+    toggleSound,
+    get soundOn() {
+      return Boolean(app.profile.sound);
+    },
     confirmCountry,
     get audio() {
       return {

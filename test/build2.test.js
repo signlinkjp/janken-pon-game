@@ -524,16 +524,16 @@ test('価格: フォールバックは ¥300（StoreKit の実価格が優先）
  * 10. ビルド番号とワークフロー
  * ------------------------------------------------------------------ */
 
-test('ビルド: iOS プロジェクトもアプリも同じ Build 番号（Build 5）', () => {
+test('ビルド: iOS プロジェクトもアプリも同じ Build 番号（Build 6）', () => {
   const pbx = read('ios/App/App.xcodeproj/project.pbxproj');
   const numbers = [...pbx.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map((m) => Number(m[1]));
   assert.equal(numbers.length, 2, 'Debug / Release の2箇所');
-  assert.deepEqual(numbers, [5, 5], 'Build 5');
+  assert.deepEqual(numbers, [6, 6], 'Build 6');
   assert.ok(pbx.includes('MARKETING_VERSION = 1.0.0;'));
   const main = read('src/main.js');
-  assert.ok(/version: '1\.0\.0',\s*build: 5,/.test(main), 'アプリ側の build も 5');
+  assert.ok(/version: '1\.0\.0',\s*build: 6,/.test(main), 'アプリ側の build も 6');
   const html = read('index.html');
-  assert.ok(html.includes('(Build 5)'), '設定の版表示も Build 5');
+  assert.ok(html.includes('(Build 6)'), '設定の版表示も Build 6');
 });
 
 test('ワークフロー: docs/ios-testflight-build2.yml がビルド番号を自動で読む', () => {
