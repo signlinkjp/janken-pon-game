@@ -347,6 +347,14 @@ export function createAudioEngine({
       const started = typeof element.play === 'function' ? element.play() : null;
       if (started && typeof started.catch === 'function') started.catch(() => {});
       voicePlaying = { code: key, source: null, element };
+      /* 終わったら「いま鳴っている国」を戻す（<audio> には onended が要る） */
+      try {
+        element.onended = () => {
+          if (voicePlaying && voicePlaying.element === element) voicePlaying = null;
+        };
+      } catch {
+        /* onended を付けられなくても再生はできる */
+      }
       return true;
     } catch {
       return false;

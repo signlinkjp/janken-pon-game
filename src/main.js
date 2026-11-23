@@ -100,6 +100,11 @@ const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selec
 const params = new URLSearchParams(location.search);
 /** ?fast=1 でアニメーション待ちを短縮（自動テスト・スクショ用） */
 const SPEED = params.has('fast') ? 0.15 : 1;
+/** Build 8: 起動直後のオープニング（約1.6秒・タップですぐ進める。?fast=1 では出さない） */
+const OPENING_MS = 1600;
+const SKIP_OPENING = params.has('fast');
+/** ?opening=hold は自動で進めない（スクショ・確認用。タップすれば進む） */
+const HOLD_OPENING = params.get('opening') === 'hold';
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms * SPEED)));
 
 const CHANT_MS = 1080;
@@ -190,6 +195,8 @@ const app = {
   },
   locale: 'ja',
   demoKey: null,
+  /* Build 8: オープニング（起動時に1回だけ） */
+  opening: { done: false, timer: 0, hideTimer: 0, shownAt: 0, hiddenAt: 0 },
   /* Build 2: かけ声の出どころ（self = 左側の自分 / opp = 右側の相手） */
   chantSide: 'self',
 };
@@ -2456,7 +2463,68 @@ function renderSettings() {
  * COUNTRY / LANGUAGE / PRO
  * ------------------------------------------------------------------ */
 
+/* Build 8: 国カードの 🔊（かけ声の試聴）。
+   いま鳴らしている国を持っておき、その声が終わったら点灯を消す。
+   試聴は国籍を変えず、PRO も解禁しない（無料のまま全19か国を聞ける）。 */
+let countryPreview = { code: null, timer: 0 };
+
+function clearCountryPreviewHighlight() {
+  $$('.country-item__preview.is-playing').forEach((button) => {
+    button.classList.remove('is-playing');
+    button.setAttribute('aria-pressed', 'false');
+  });
+}
+
+/** 試聴の点灯と音を止める（国を選んだ・シートを閉じた・もう一度押した） */
+function stopCountryPreview({ audio = true } = {}) {
+  if (!countryPreview.code) return false;
+  countryPreview.code = null;
+  clearInterval(countryPreview.timer);
+  countryPreview.timer = 0;
+  clearCountryPreviewHighlight();
+  if (audio) sound.stopVoice();
+  return true;
+}
+
+/** 押した 🔊 だけを点灯し、その国の声が終わったら消す */
+function markCountryPreview(button, code) {
+  clearCountryPreviewHighlight();
+  countryPreview.code = code;
+  button.classList.add('is-playing');
+  button.setAttribute('aria-pressed', 'true');
+  clearInterval(countryPreview.timer);
+  const startedAt = Date.now();
+  let heard = false;
+  countryPreview.timer = setInterval(() => {
+    if (countryPreview.code !== code) return;
+    if (sound.voice === code) {
+      heard = true;
+      return;
+    }
+    /* 読み込み中は待つ。鳴らせなかったときも 1.2秒で点灯を消す */
+    if (!heard && Date.now() - startedAt < 1200) return;
+    stopCountryPreview({ audio: false });
+  }, 100);
+}
+
+/** 国カードの 🔊: その国のかけ声を鳴らす（国籍は変えない） */
+function previewCountryVoice(country, button) {
+  if (!app.profile.sound) {
+    sound.play('locked');
+    toast(T('country.muted'), 2200);
+    return false;
+  }
+  /* 音のエンジンは小文字の国コードで鳴らす（audio.voice と突き合わせる） */
+  const key = String(country.code).toLowerCase();
+  /* タップの中で音を起こす（iOS は操作の外では鳴らない） */
+  sound.unlock();
+  markCountryPreview(button, key);
+  sound.playVoice(key)?.catch?.(() => {});
+  return true;
+}
+
 function renderCountryGrid() {
+  stopCountryPreview();
   const grid = $('#country-grid');
   const locked = !canChangeCountry(app.profile);
   const lockNote = $('#country-lock-note');
@@ -2466,17 +2534,25 @@ function renderCountryGrid() {
   grid.innerHTML = '';
   for (const country of COUNTRIES) {
     const current = country.code === app.profile.countryCode;
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = `country-item${current ? ' is-active is-current' : ''}${locked && !current ? ' is-disabled' : ''}`;
-    if (locked && !current) button.setAttribute('aria-disabled', 'true');
-    button.innerHTML = `
+    const item = document.createElement('div');
+    item.className = `country-item${current ? ' is-active is-current' : ''}${locked && !current ? ' is-disabled' : ''}`;
+    item.dataset.country = country.code;
+
+    /* カード本体（国を選ぶ）。ロック後も押せて、理由をトーストで伝える */
+    const pick = document.createElement('button');
+    pick.type = 'button';
+    pick.className = 'country-item__pick';
+    pick.setAttribute('aria-pressed', String(current));
+    if (locked && !current) pick.setAttribute('aria-disabled', 'true');
+    pick.innerHTML = `
       <img src="${country.flag}" alt="${countryName(country)}" />
       <span class="country-item__name">${countryName(country)}</span>
       <span class="country-item__chant">${escapeHtml(chantLabel(country))}</span>
       ${country.code === DEFAULT_COUNTRY ? '<span class="country-item__home">HOME</span>' : ''}
     `;
-    button.addEventListener('click', () => {
+    pick.addEventListener('click', () => {
+      /* 国を選んだら、鳴っている試聴は止める */
+      stopCountryPreview();
       /* 国籍は初回登録後は変えられない（ニックネームだけが変えられる） */
       if (!canChangeCountry(app.profile)) {
         sound.play('locked');
@@ -2490,7 +2566,29 @@ function renderCountryGrid() {
       if (app.match) $('#you-flag img').src = country.flag;
       toast(`${countryName(country)} で挑戦します`);
     });
-    grid.appendChild(button);
+
+    /*  🔊（Build 8）: その国のかけ声を試聴する。国籍の選択とは別のボタンなので、
+        ロック後や無料のままでも全19か国を聞ける。 */
+    const preview = document.createElement('button');
+    preview.type = 'button';
+    preview.className = 'country-item__preview';
+    preview.dataset.preview = country.code;
+    preview.setAttribute('aria-pressed', 'false');
+    preview.setAttribute('aria-label', T('country.preview', { country: countryName(country) }));
+    preview.setAttribute('title', T('country.preview', { country: countryName(country) }));
+    preview.innerHTML = '<img src="assets/icons/1f50a.svg" alt="" />';
+    preview.addEventListener('click', (event) => {
+      /* カード本体の「国を選ぶ」に伝わらないようにする（stopPropagation） */
+      event.stopPropagation();
+      event.preventDefault();
+      const again = countryPreview.code === String(country.code).toLowerCase();
+      stopCountryPreview();
+      if (again) return; /* 同じ 🔊 をもう一度押したら停止 */
+      previewCountryVoice(country, preview);
+    });
+
+    item.append(pick, preview);
+    grid.appendChild(item);
   }
 }
 
@@ -2672,6 +2770,8 @@ function openSheet(name, { keepToast = false, nested = false } = {}) {
 }
 
 function closeSheet() {
+  /* Build 8: 国シートを閉じたら、鳴っている試聴も止める */
+  stopCountryPreview();
   const previous = app.sheetStack.pop();
   if (previous) {
     $$('.sheet').forEach((sheet) => {
@@ -2736,7 +2836,82 @@ function startIdleWatch() {
  * イベント
  * ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ *\
+ * OPENING（Build 8）
+ * ------------------------------------------------------------------ */
+
+function openingElement() {
+  return $('#opening');
+}
+
+/** オープニングを終える（auto = 1.6秒 / tap = タップ / skip = ?fast=1・API） */
+function finishOpening(reason = 'auto') {
+  const el = openingElement();
+  if (!el || app.opening.done) return false;
+  app.opening.done = true;
+  clearTimeout(app.opening.timer);
+  app.opening.timer = 0;
+  clearTimeout(app.opening.hideTimer);
+  app.opening.hideTimer = 0;
+  el.setAttribute('aria-hidden', 'true');
+  const hide = () => {
+    el.hidden = true;
+    el.classList.remove('is-leaving');
+    app.opening.hiddenAt = typeof performance === 'undefined' ? 0 : performance.now();
+    app.opening.hideTimer = 0;
+  };
+  /* タップ・自動テストは待たずに消す。自動進行だけ 0.3秒のフェードを添える */
+  if (reason === 'skip' || reason === 'api' || reason === 'tap' || SPEED < 1) {
+    hide();
+  } else {
+    el.classList.add('is-leaving');
+    app.opening.hideTimer = setTimeout(hide, 300);
+  }
+  app.lastInput = Date.now();
+  return true;
+}
+
+/** 起動時にオープニングを出す（?fast=1 はホームへ直行） */
+function startOpening() {
+  const el = openingElement();
+  if (!el) return false;
+  app.opening.done = false;
+  clearTimeout(app.opening.timer);
+  app.opening.timer = 0;
+  clearTimeout(app.opening.hideTimer);
+  app.opening.hideTimer = 0;
+  el.classList.remove('is-leaving');
+  el.hidden = false;
+  el.setAttribute('aria-hidden', 'false');
+  app.opening.shownAt = typeof performance === 'undefined' ? 0 : performance.now();
+  app.opening.hiddenAt = 0;
+  if (SKIP_OPENING) {
+    finishOpening('skip');
+    return false;
+  }
+  if (HOLD_OPENING) return true;
+  app.opening.timer = setTimeout(() => finishOpening('auto'), OPENING_MS);
+  return true;
+}
+
+/** どこをタップしてもオープニングを飛ばせる */
+function bindOpening() {
+  const el = openingElement();
+  if (!el) return;
+  const tap = (event) => {
+    event?.preventDefault?.();
+    finishOpening('tap');
+  };
+  el.addEventListener('pointerdown', tap);
+  el.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Escape') tap(event);
+  });
+  const start = $('#btn-opening-start');
+  if (start) start.addEventListener('click', tap);
+}
+
 function bindEvents() {
+  bindOpening();
   $$('.ds-item').forEach((button) => {
     button.addEventListener('click', () => {
       const rounds = Number(button.dataset.division) === 3 ? 3 : 5;
@@ -3023,6 +3198,7 @@ function boot() {
   i18n.applyI18n(document, app.locale);
   renderHome();
   showScreen('home');
+  startOpening();
   renderProSheet();
   renderStats();
   renderHowto();
@@ -3045,7 +3221,19 @@ function boot() {
 
   window.JANKeNPoN = {
     version: '1.0.0',
-    build: 7,
+    build: 8,
+    /* Build 8: オープニング（自動テストは skipOpening() で飛ばせる） */
+    get opening() {
+      const el = openingElement();
+      return {
+        visible: Boolean(el && !el.hidden),
+        done: app.opening.done,
+        ms: OPENING_MS,
+        shownAt: app.opening.shownAt,
+        hiddenAt: app.opening.hiddenAt,
+      };
+    },
+    skipOpening: () => finishOpening('api'),
     get profile() {
       return app.profile;
     },

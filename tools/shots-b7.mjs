@@ -388,11 +388,11 @@ async function main() {
     await shot.evaluate(() => window.JANKeNPoN.closeSheet());
     await shot.waitForTimeout(200);
 
-    /* 設定（版表示 1.0.0 (Build 7)） */
+    /* 設定（版表示 1.0.0 (Build)） */
     await shot.evaluate(() => window.JANKeNPoN.openSheet('settings'));
     await shot.waitForTimeout(300);
     const version = await shot.evaluate(() => document.querySelector('#sheet-settings .sheet__note')?.textContent ?? '');
-    check('スクショ: 設定の版表示が Build 7', version.includes('(Build 7)'), version);
+    check('スクショ: 設定の版表示が Build 8', version.includes('(Build 8)'), version);
     await shot.screenshot({ path: resolve(OUT, 'janken-b7-settings.png') });
 
     check('スクショ: JS エラーなし', storeErrors.length === 0, storeErrors);

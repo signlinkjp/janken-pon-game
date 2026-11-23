@@ -1,17 +1,18 @@
-# JANKeN PoN — iOS Build 7
+# JANKeN PoN — iOS Build 8
 
-『JANKeN PoN』は、世界の掛け声で遊ぶじゃんけんゲームです。Build 7 は、
-**プレイ画面下部の案内を2行に整理し（「選択中（カウント終了で確定）／ほかの手をタップで変更できます」）、
-PRO 画面の最強CPUの説明を「最強CPUとお互いに手のクセを読み合う心理戦」にした、
-`1.0.0` App Store 審査提出用の最終ビルド** です。
+『JANKeN PoN』は、世界の掛け声で遊ぶじゃんけんゲームです。Build 8 は、
+**「国をえらぶ」の各カードに 🔊（かけ声の試聴）を足して、無料のまま・国籍ロック後でも
+全19か国の声を聞けるようにし、起動直後に約1.6秒のオープニング（回る地球・✊✌️✋・
+JANKeN PoN World のロゴ・「世界中のかけ声で真剣勝負！」）を入れた、
+`1.0.0` App Store 審査提出用のビルド** です。
 
 - アプリ名: **JANKeN PoN** / Bundle ID: **`jp.signlink.JankenPon`**
 - 課金: **`jp.signlink.JankenPon.pro`**（買い切り・StoreKit 2 / **¥300**）
-- 版: `MARKETING_VERSION = 1.0.0` / `CURRENT_PROJECT_VERSION = 7`
+- 版: `MARKETING_VERSION = 1.0.0` / `CURRENT_PROJECT_VERSION = 8`
 - 構成: 純粋な ES Modules + 静的アセット（ビルド不要）→ `www/` に写して Capacitor へ
 
 ```
-npm test        # ルール・通信・Build 1〜7 仕様のテスト（276件）
+npm test        # ルール・通信・Build 1〜8 仕様のテスト（297件）
 npm run serve   # http://127.0.0.1:4173 で確認（file:// では ES Modules が動きません）
 npm run shots   # Chromium で操作テスト + スクショ（downloads/janken-b1-*.png）
 node tools/shots-b2.mjs  # Build 2 の見た目・操作（downloads/janken-b2-*.png）
@@ -20,11 +21,35 @@ node tools/shots-b4.mjs  # Build 4 の結果画面（LOSE の赤枠・PKボー�
 node tools/shots-b5.mjs  # Build 5 の声と設定（downloads/janken-b5-settings.png・janken-b5-chant.png）
 node tools/shots-b6.mjs  # Build 6 のサウンド切替と提出用スクショ（downloads/janken-b6-*.png・1320×2868）
 node tools/shots-b7.mjs  # Build 7 の2行の案内・PRO 画面と提出用スクショ（downloads/janken-b7-*.png・1320×2868）
+node tools/shots-b8.mjs  # Build 8 の19か国の 🔊・国籍ロック後の試聴・開幕（downloads/janken-b8-*.png・1320×2868）
 node tools/make-voices.mjs  # かけ声の mp3 を作り直す（edge-tts・assets/voices/）
 npm run e2e     # 2ブラウザ × 実 Supabase で合言葉の部屋を5回戦（手動の通し確認）
 npm run www     # 配布用 www/ を作る
 npm run ios:sync # cap sync ios（www → ios/App/App/public）
 ```
+
+## Build 8 の変更点（2026-11-23）
+
+トモアキさんの要望「『国をえらぶ』で、無料の人も・国籍を決めたあとも、19か国の声を
+いつでも聞けるようにしたい（🔊）」と「起動時に回る地球と ✊✌️✋、ロゴのオープニング」。
+
+1. **各国カードに 🔊（かけ声の試聴）**:
+   - カード本体（国を選ぶ）と 🔊 は別のボタン。🔊 は `event.stopPropagation()` で
+     国を選ぶ動きに伝わらない。押すと `assets/voices/{code}.mp3` を鳴らすだけ
+   - **無料のまま・国籍ロック後でも全19か国**を聞ける（国籍は変わらず、PRO も解禁しない）
+   - 押した 🔊 だけが点灯（`is-playing` / `aria-pressed`）。声が終わると消える。
+     同じ 🔊 の2回目・シートを閉じる・国を選ぶと止まる
+   - ロック後はカード本体（旗・名前）だけを薄くし、🔊 は crisp なまま押せる
+   - サウンド OFF のときは鳴らさず「サウンドがOFFです」と伝える（12言語）
+2. **起動直後のオープニング（約1.6秒）**:
+   - 回る地球（1f30f）＋ ✊✌️✋ が弾む＋「JANKeN PoN / WORLD」のロゴ＋
+     「世界中のかけ声で真剣勝負！」＋ TAP TO START
+   - **タップですぐ飛ばせる**（どこをタップしても）。1.6秒で自動的にホームへ
+   - `?fast=1` はホームへ直行（既存のブラウザ確認がそのまま通る）。
+     `?opening=hold` は自動で進めない（スクショ・確認用）。`window.JANKeNPoN.skipOpening()`
+   - `prefers-reduced-motion` では回転・明滅を止める。小さい画面では地球を縮める
+3. ビルド番号 8・`www/` を同期。テスト（`test/build8.test.js` 21件・全297件）と
+   実ブラウザ確認（`tools/shots-b8.mjs`・234チェック）。
 
 ## Build 7 の変更点（2026-11-23）
 
@@ -284,6 +309,7 @@ test/build4.test.js     Build 4 仕様（結果画面 LOSE の赤枠・PKボー�
 test/build5.test.js     Build 5 仕様（19か国の声と mp3・再生/停止/重ならない・設定の削除・ビルド番号5）
 test/build6.test.js     Build 6 仕様（プレイ中のサウンド ON/OFF・設定との同期・特大ヘッダー・ビルド番号6）
 test/build7.test.js     Build 7 仕様（2行の案内と pre-line・決定ボタンの補足・PRO の最強CPU説明・ビルド番号7）
+test/build8.test.js     Build 8 仕様（19か国の 🔊 と試聴・国籍ロック後の試聴・オープニング・ビルド番号8）
 tools/online-e2e.mjs    2ブラウザ × 実 games-realtime の通し確認（手動）
 tools/serve.mjs         静的サーバー
 tools/shots.mjs         Chromium 操作テスト + スクショ（Build 1）
@@ -293,6 +319,7 @@ tools/shots-b4.mjs      Chromium 操作テスト + スクショ（Build 4・結�
 tools/shots-b5.mjs      Chromium 操作テスト + スクショ（Build 5・声と設定）
 tools/shots-b6.mjs      Chromium 操作テスト + スクショ（Build 6・サウンド切替・提出用 1320×2868）
 tools/shots-b7.mjs      Chromium 操作テスト + スクショ（Build 7・2行の案内・PRO 画面・提出用 1320×2868）
+tools/shots-b8.mjs      Chromium 操作テスト + スクショ（Build 8・19か国の 🔊・ロック後の試聴・開幕）
 tools/preflight-local.py  ワークフローの preflight をローカルで通す（python3 tools/preflight-local.py .github/workflows/ios-testflight-build1.yml）
 tools/make-www.mjs      配布用 www/ の生成（assets/voices も写す）
 tools/make-voices.mjs   かけ声の mp3 を国データから作る（edge-tts / assets/voices/）
@@ -322,9 +349,9 @@ docs/live-check.md      実 games-realtime での確認記録（2人対戦・3�
 preflight は、pbxproj の `CURRENT_PROJECT_VERSION` を読んで、2箇所（Debug/Release）が
 揃っていること・正の整数であることを確かめてから進みます。**ワークフロー側にはビルド番号を
 書きません**（Build 3 以降は pbxproj の番号を上げるだけ。`MARKETING_VERSION` も同じ場所から読みます）。
-Build 7 で上げた番号（7）も、いま GitHub にあるワークフローがそのまま読み取ります
+Build 8 で上げた番号（8）も、いま GitHub にあるワークフローがそのまま読み取ります
 （`python3 tools/preflight-local.py .github/workflows/ios-testflight-build1.yml` でローカル確認済み:
-preflight 全ステップ合格・ビルド番号 7）。**ワークフローファイルの貼り替えは要りません。**
+preflight 全ステップ合格・ビルド番号 8）。**ワークフローファイルの貼り替えは要りません。**
 
 ## 次の一歩（Build 2 の外）
 

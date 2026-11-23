@@ -21,6 +21,37 @@
       <i class="ambient__ring"></i>
     </div>
 
+    <!-- =========================== OPENING (Build 8) =========================== -->
+    <!-- 起動直後の約1.6秒。タップですぐ飛ばせる（自動でも進む）。
+         地球が回り、✊✌️✋ が弾み、ロゴと一言が出てからホームへ。 -->
+    <div class="opening" id="opening" role="dialog" aria-modal="true" aria-label="JANKeN PoN World">
+      <div class="opening__sky" aria-hidden="true">
+        <i class="opening__star opening__star--1"></i>
+        <i class="opening__star opening__star--2"></i>
+        <i class="opening__star opening__star--3"></i>
+        <i class="opening__star opening__star--4"></i>
+        <i class="opening__beam"></i>
+      </div>
+      <div class="opening__stage">
+        <div class="opening__orbit" aria-hidden="true">
+          <i class="opening__ring"></i>
+          <span class="opening__globe"><img class="opening__earth" src="assets/icons/1f30f.svg" alt="" /></span>
+          <span class="opening__hand opening__hand--rock"><img src="assets/icons/270a.svg" alt="" /></span>
+          <span class="opening__hand opening__hand--scissors"><img src="assets/icons/270c.svg" alt="" /></span>
+          <span class="opening__hand opening__hand--paper"><img src="assets/icons/270b.svg" alt="" /></span>
+        </div>
+        <h1 class="opening__logo" aria-label="JANKeN PoN World">
+          <span class="opening__logo-main">JANKeN PoN</span>
+          <span class="opening__logo-world">WORLD</span>
+        </h1>
+        <p class="opening__tagline" data-i18n="opening.tagline">世界中のかけ声で真剣勝負！</p>
+      </div>
+      <button class="opening__tap" id="btn-opening-start" type="button" data-i18n-aria="opening.skip" aria-label="オープニングをとばす">
+        <span class="opening__tap-text" data-i18n="opening.tap">TAP TO START</span>
+        <i class="opening__tap-dot" aria-hidden="true"></i>
+      </button>
+    </div>
+
     <!-- ============================= HOME ============================= -->
     <section class="screen screen--home is-active" id="screen-home">
       <header class="topbar">
@@ -455,6 +486,9 @@
             <img src="assets/icons/1f512.svg" alt="" />
             <span data-i18n="country.locked">国籍は初回登録のあと変更できません（ニックネームは設定から変えられます）。</span>
           </p>
+          <p class="country-hint" id="country-preview-hint">
+            <span data-i18n="country.previewHint">🔊 を押すと、どの国のかけ声も無料で試聴できます（国籍は変わりません）</span>
+          </p>
           <div class="country-grid" id="country-grid"></div>
           <button class="cta cta--small" id="btn-country-confirm" type="button">
             <span class="cta__label" data-i18n="country.confirm">この国で登録する</span>
@@ -703,7 +737,7 @@
               <span data-i18n="settings.privacy">プライバシーポリシー</span><span class="set-row__value">›</span>
             </button>
           </div>
-          <p class="sheet__note">JANKeN PoN 1.0.0 (Build 7) ・ T-maks Games ・ 自由入力のチャットはありません。</p>
+          <p class="sheet__note">JANKeN PoN 1.0.0 (Build 8) ・ T-maks Games ・ 自由入力のチャットはありません。</p>
         </section>
 
         <section class="sheet" id="sheet-language" data-sheet="language" hidden>

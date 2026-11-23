@@ -478,14 +478,14 @@ test('勝率: 画面に「5戦以上で対象」と「あとN戦」が出る', (
  * 7. ビルド番号とワークフロー
  * ================================================================== */
 
-test('ビルド: アプリも iOS プロジェクトも Build 7', () => {
+test('ビルド: アプリも iOS プロジェクトも Build 8', () => {
   const pbx = read('ios/App/App.xcodeproj/project.pbxproj');
   const numbers = [...pbx.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map((m) => Number(m[1]));
   assert.equal(numbers.length, 2, 'Debug / Release の2箇所');
-  assert.deepEqual(numbers, [7, 7]);
+  assert.deepEqual(numbers, [8, 8]);
   assert.ok(pbx.includes('MARKETING_VERSION = 1.0.0;'));
-  assert.ok(/version: '1\.0\.0',\s*build: 7,/.test(read('src/main.js')));
-  assert.ok(read('index.html').includes('(Build 7)'));
+  assert.ok(/version: '1\.0\.0',\s*build: 8,/.test(read('src/main.js')));
+  assert.ok(read('index.html').includes('(Build 8)'));
 });
 
 test('ワークフロー: docs/ios-testflight-build3.yml は番号を自動で読み、Build 3 の検査を持つ', () => {

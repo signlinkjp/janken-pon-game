@@ -83,7 +83,7 @@ async function main() {
 
     /* ---------- 1. タイトル ---------- */
     step('home');
-    await page.goto(`${server.url}/`, { waitUntil: 'load' });
+    await page.goto(`${server.url}/index.html?fast=1`, { waitUntil: 'load' });
     await page.waitForFunction(() => Boolean(window.JANKeNPoN));
     await page.fill('#nickname', 'トモアキ');
     await page.locator('#nickname').blur();
