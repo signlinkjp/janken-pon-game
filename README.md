@@ -1,18 +1,17 @@
-# JANKeN PoN — iOS Build 8
+# JANKeN PoN — iOS Build 9
 
-『JANKeN PoN』は、世界の掛け声で遊ぶじゃんけんゲームです。Build 8 は、
-**「国をえらぶ」の各カードに 🔊（かけ声の試聴）を足して、無料のまま・国籍ロック後でも
-全19か国の声を聞けるようにし、起動直後に約1.6秒のオープニング（回る地球・✊✌️✋・
-JANKeN PoN World のロゴ・「世界中のかけ声で真剣勝負！」）を入れた、
-`1.0.0` App Store 審査提出用のビルド** です。
+『JANKeN PoN』は、世界の掛け声で遊ぶじゃんけんゲームです。Build 9 は、
+**12言語にない端末の言語を英語にし（日本語にしない）、「国をえらぶ」の上に
+🌐 言語ピルを置き、世界の特別ルール（ゾウ・人間・アリ / 井戸つき）を PRO の
+ランキング対象外の遊びとして戻した `1.0.0` App Store 審査提出用のビルド** です。
 
 - アプリ名: **JANKeN PoN** / Bundle ID: **`jp.signlink.JankenPon`**
 - 課金: **`jp.signlink.JankenPon.pro`**（買い切り・StoreKit 2 / **¥300**）
-- 版: `MARKETING_VERSION = 1.0.0` / `CURRENT_PROJECT_VERSION = 8`
+- 版: `MARKETING_VERSION = 1.0.0` / `CURRENT_PROJECT_VERSION = 9`
 - 構成: 純粋な ES Modules + 静的アセット（ビルド不要）→ `www/` に写して Capacitor へ
 
 ```
-npm test        # ルール・通信・Build 1〜8 仕様のテスト（297件）
+npm test        # ルール・通信・Build 1〜9 仕様のテスト
 npm run serve   # http://127.0.0.1:4173 で確認（file:// では ES Modules が動きません）
 npm run shots   # Chromium で操作テスト + スクショ（downloads/janken-b1-*.png）
 node tools/shots-b2.mjs  # Build 2 の見た目・操作（downloads/janken-b2-*.png）
@@ -22,11 +21,40 @@ node tools/shots-b5.mjs  # Build 5 の声と設定（downloads/janken-b5-setting
 node tools/shots-b6.mjs  # Build 6 のサウンド切替と提出用スクショ（downloads/janken-b6-*.png・1320×2868）
 node tools/shots-b7.mjs  # Build 7 の2行の案内・PRO 画面と提出用スクショ（downloads/janken-b7-*.png・1320×2868）
 node tools/shots-b8.mjs  # Build 8 の19か国の 🔊・国籍ロック後の試聴・開幕（downloads/janken-b8-*.png・1320×2868）
+node tools/shots-b9.mjs  # Build 9 の英語フォールバック・言語ピル・世界の特別ルール（downloads/janken-b9-*.png）
 node tools/make-voices.mjs  # かけ声の mp3 を作り直す（edge-tts・assets/voices/）
 npm run e2e     # 2ブラウザ × 実 Supabase で合言葉の部屋を5回戦（手動の通し確認）
 npm run www     # 配布用 www/ を作る
 npm run ios:sync # cap sync ios（www → ios/App/App/public）
 ```
+
+## Build 9 の変更点（2026-11-23）
+
+トモアキさんの要望「12言語に無い国の端末は英語に」「国をえらぶ画面から言語を変えたい」
+「世界の特別ルール（ゾウ・人間・アリ / 井戸つき）を PRO の遊びとして戻したい」。
+
+1. **英語フォールバック**:
+   - `i18n.detectLocale` は、12言語のどれにも当たらない端末の言語
+     （タイ語・アラビア語・ベトナム語・空文字など）に **`'en'`** を返す
+     （`FALLBACK_LOCALE = 'en'`。日本語にはしない）
+   - プロフィールの言語の初期値は **`null`**（まだ選んでいない）。起動時に
+     `navigator.language` から決め、選んだあとは保存する。古いデータの `'ja'` はそのまま
+   - 英語表示では手の名前も英語（ROCK / SCISSORS / PAPER / WELL…）になる
+2. **「国をえらぶ」の🌐言語ピル**:
+   - 見出しのすぐ下・右上に **`🌐 日本語 ▾`** の小さなピル。押すと国シートを閉じずに
+     言語シートを重ね、選ぶと国シートに戻る（国名もその言語で描き直す）
+   - 12言語の名前はその言語自身で表示（日本語 / English / 한국어 …）
+3. **世界の特別ルール（PRO・ランキング対象外）**:
+   - **ゾウ・人間・アリ**（🇮🇩 インドネシア・ゾウ3 / 人間2 / アリ5）と
+     **井戸つき**（🇫🇷 フランス・パーだけが井戸をふさぐ4手・井戸4pt）を UI に復帰
+   - 遊べるのは **CPU練習とパーティーだけ**。**通信対戦（ランキング）はクラシック固定**
+   - ホームは「ルール」の小さなチップ3つ（クラシック / ゾウ・人間・アリ / 井戸つき）。
+     特別ルールは PRO の印つきで、押すと PRO シートへ。選ぶと1行の説明が出る
+   - パーティーは**ホストが部屋のルールを選び**、開始の電文（`party-start`）で全員に配る。
+     参加者は同じルールで遊び、手の検証・タイムアウトの補完・採点もすべてそのルール
+   - 特別ルールの結果はどのランキングにも加算しない（結果画面に明記）
+4. ビルド番号 9・`www/` を同期。テスト（`test/build9.test.js` 29件・全326件）と
+   実ブラウザ確認（`tools/shots-b9.mjs`・51チェック）。
 
 ## Build 8 の変更点（2026-11-23）
 
@@ -199,8 +227,9 @@ iOS は `AVAudioSession` を `.playback` にしたので、**消音スイッチ�
 - **手を選ぶのは締切まで**: タップは「選択中」だけで、カウントが 0 になるまで何度でも選び直せる。
   0 になった時点の手で確定し、かけ声の「ぽん！」で自分と相手の手が同時に開く（後出ししない）。
 
-プロトタイプにあった **ゾウ・人間・アリ / 井戸つき** の特殊ルールは、Build 1 では
-**UI に出しません**（`RULESETS` にコードとして残し、v1.1 以降に温存）。
+プロトタイプにあった **ゾウ・人間・アリ / 井戸つき** の特殊ルールは、Build 9 から
+**PRO の遊び（CPU練習とパーティーだけ）** として選べます。通信対戦（ランキング）は
+クラシック固定で、特別ルールの結果はどのランキングにも加算しません。
 
 ## 3つの遊び方
 
@@ -257,6 +286,7 @@ iOS は `AVAudioSession` を `.playback` にしたので、**消音スイッチ�
 | 通信対戦 | 国内 | ＋世界 |
 | ランキング | 国内（5/3回戦 × 総合/月別/週間/勝率） | ＋世界 |
 | パーティー | 国内（2〜4人・5回戦） | ＋世界パーティー |
+| 世界の特別ルール | — | ゾウ・人間・アリ / 井戸つき（CPU練習・パーティー） |
 | 相手の手の率 | — | ✊✌️✋% の詳細 |
 | 称号フレーム | 標準 | ゴールド |
 | 言語 | 12言語 | 12言語 |
@@ -275,6 +305,8 @@ PRO シートの体験スイッチで解放内容を確認できます（課金�
 Português / Italiano / हिन्दी / Bahasa Indonesia。
 短い UI 文言はすべての言語に用意し、長文（あそびかた・プライバシーポリシー）は
 日本語と英語の全文を持ちます（他の言語では英語を表示し、その旨を注記）。
+12言語にない端末の言語は **英語**（`FALLBACK_LOCALE = 'en'`）。「国をえらぶ」の
+🌐 言語ピルから、その場で言語を変えられます。
 `test/build1.test.js` が「12言語 × 全キー」を検査します。
 
 ## 記録の分け方
@@ -309,7 +341,8 @@ test/build4.test.js     Build 4 仕様（結果画面 LOSE の赤枠・PKボー�
 test/build5.test.js     Build 5 仕様（19か国の声と mp3・再生/停止/重ならない・設定の削除・ビルド番号5）
 test/build6.test.js     Build 6 仕様（プレイ中のサウンド ON/OFF・設定との同期・特大ヘッダー・ビルド番号6）
 test/build7.test.js     Build 7 仕様（2行の案内と pre-line・決定ボタンの補足・PRO の最強CPU説明・ビルド番号7）
-test/build8.test.js     Build 8 仕様（19か国の 🔊 と試聴・国籍ロック後の試聴・オープニング・ビルド番号8）
+test/build8.test.js     Build 8 仕様（19か国の 🔊 と試聴・国籍ロック後の試聴・オープニング）
+test/build9.test.js     Build 9 仕様（英語フォールバック・言語ピル・世界の特別ルール・ビルド番号9）
 tools/online-e2e.mjs    2ブラウザ × 実 games-realtime の通し確認（手動）
 tools/serve.mjs         静的サーバー
 tools/shots.mjs         Chromium 操作テスト + スクショ（Build 1）
@@ -320,6 +353,7 @@ tools/shots-b5.mjs      Chromium 操作テスト + スクショ（Build 5・声�
 tools/shots-b6.mjs      Chromium 操作テスト + スクショ（Build 6・サウンド切替・提出用 1320×2868）
 tools/shots-b7.mjs      Chromium 操作テスト + スクショ（Build 7・2行の案内・PRO 画面・提出用 1320×2868）
 tools/shots-b8.mjs      Chromium 操作テスト + スクショ（Build 8・19か国の 🔊・ロック後の試聴・開幕）
+tools/shots-b9.mjs      Chromium 操作テスト + スクショ（Build 9・英語フォールバック・言語ピル・特別ルール）
 tools/preflight-local.py  ワークフローの preflight をローカルで通す（python3 tools/preflight-local.py .github/workflows/ios-testflight-build1.yml）
 tools/make-www.mjs      配布用 www/ の生成（assets/voices も写す）
 tools/make-voices.mjs   かけ声の mp3 を国データから作る（edge-tts / assets/voices/）
@@ -349,13 +383,13 @@ docs/live-check.md      実 games-realtime での確認記録（2人対戦・3�
 preflight は、pbxproj の `CURRENT_PROJECT_VERSION` を読んで、2箇所（Debug/Release）が
 揃っていること・正の整数であることを確かめてから進みます。**ワークフロー側にはビルド番号を
 書きません**（Build 3 以降は pbxproj の番号を上げるだけ。`MARKETING_VERSION` も同じ場所から読みます）。
-Build 8 で上げた番号（8）も、いま GitHub にあるワークフローがそのまま読み取ります
+Build 9 で上げた番号（9）も、いま GitHub にあるワークフローがそのまま読み取ります
 （`python3 tools/preflight-local.py .github/workflows/ios-testflight-build1.yml` でローカル確認済み:
-preflight 全ステップ合格・ビルド番号 8）。**ワークフローファイルの貼り替えは要りません。**
+preflight 全ステップ合格・ビルド番号 9）。**ワークフローファイルの貼り替えは要りません。**
 
 ## 次の一歩（Build 2 の外）
 
 - プライバシーマニフェスト（`PrivacyInfo.xcprivacy`）・6.5インチ用スクショの書き出し
 - 世界ランキングのサーバー側集計（現在はチャンネル上の行の受け渡し＋ローカル）
-- 特殊ルール（ゾウ・人間・アリ / 井戸つき）の v1.1 復帰
+- 韓国「ムクチパ」のような、あいこ後の攻守で決めるルール（回戦の外の決着が要る）
 - 観戦モード、フレンド、月間・週間の切り替わり通知

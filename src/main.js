@@ -23,6 +23,13 @@ import {
   getRuleset,
   getLevel,
   isLevelUnlocked,
+  isRulesetUnlocked,
+  isSpecialRuleset,
+  rulesetsForMode,
+  rulesetName,
+  rulesetHint,
+  SPECIAL_RULESETS,
+  RANKED_RULESET,
   createMatch,
   playRound,
   matchSummary,
@@ -53,6 +60,7 @@ import {
   chantLabel,
   pickOpponent,
   hasCountry,
+  countryForRuleset,
   DEFAULT_COUNTRY,
 } from './countries.js';
 import {
@@ -190,6 +198,8 @@ const app = {
     isHost: false,
     phase: 'idle',
     selected: null,
+    /* Build 9: 部屋のルール（世界の特別ルールは PRO のホストだけが選べる） */
+    rulesetId: 'standard',
     timer: { raf: 0, ms: 0, start: 0, warned: false },
     startedAt: 0,
   },
@@ -253,6 +263,13 @@ function isPro() {
 
 function countryName(country) {
   return app.locale === 'ja' ? country.nameJa : country.nameEn;
+}
+
+/** 手の名前（日本語以外は英語。ゾウ・人間・アリ・井戸も同じ） */
+function handLabel(hand) {
+  const meta = HAND_META[hand];
+  if (!meta) return '';
+  return app.locale === 'ja' ? meta.labelJa : meta.labelEn;
 }
 
 /* ------------------------------------------------------------------ *\
@@ -443,6 +460,7 @@ function renderHome() {
   renderModes();
   renderRounds();
   renderLevels();
+  renderRules();
   renderScope();
   renderPractice();
   renderSoundButton();
@@ -471,8 +489,9 @@ function renderCta() {
   const sub = $('#play-sub');
   if (app.mode === 'practice') {
     const level = getLevel(app.profile.levelId);
+    const set = getRuleset(practiceRulesetId());
     label.textContent = T('home.play', { n: app.profile.rounds });
-    sub.textContent = `${level.label} ・ ${(level.thinkingTimeMs / 1000).toFixed(1)}s ・ CLASSIC`;
+    sub.textContent = `${level.label} ・ ${(level.thinkingTimeMs / 1000).toFixed(1)}s ・ ${set.shortEn ?? set.id.toUpperCase()}`;
   } else if (app.mode === 'online') {
     const scope = app.online.scope === 'world' ? T('online.world') : T('online.domestic');
     label.textContent = T('online.quick');
@@ -481,6 +500,126 @@ function renderCta() {
     label.textContent = T('party.create');
     sub.textContent = `${T(`online.${app.party.scope}`)} ・ ${PARTY_MIN_PLAYERS}–${PARTY_MAX_PLAYERS} ・ ${PARTY_ROUNDS}回戦 ・ 5.0s`;
   }
+}
+
+/* ------------------------------------------------------------------ *\
+ * ルール（Build 9: クラシック ＋ 世界の特別ルール = PRO）
+ * ------------------------------------------------------------------ */
+
+/** そのルールをいま使えるか（世界の特別ルールは PRO） */
+function ruleUnlocked(rulesetId) {
+  return isRulesetUnlocked(rulesetId, isPro());
+}
+
+/** つかう練習のルール。PRO が切れていたらクラシックに戻す（保存値はそのまま） */
+function practiceRulesetId() {
+  const id = app.profile.rulesetId;
+  const known = id === RANKED_RULESET || isSpecialRuleset(id);
+  if (!known) return RANKED_RULESET;
+  if (isSpecialRuleset(id) && !ruleUnlocked(id)) return RANKED_RULESET;
+  return id;
+}
+
+/** ルールの名前（日本語以外は英語。例: ゾウ・人間・アリ / ELEPHANT / HUMAN / ANT） */
+function ruleName(rulesetId) {
+  return rulesetName(rulesetId, app.locale);
+}
+
+/** チップに収まる短い名前（例: ゾウ・人間・アリ / ELEPHANT） */
+function ruleShortName(rulesetId) {
+  const set = getRuleset(rulesetId);
+  return app.locale === 'ja' ? (set.shortJa ?? set.nameJa) : (set.shortEn ?? set.nameEn);
+}
+
+/** ルールの一言説明（特別ルールのときだけ出す） */
+function ruleHint(rulesetId) {
+  return rulesetHint(rulesetId, app.locale);
+}
+
+/** ルールのチップに出す旗（本場の国。クラシックは無し） */
+function ruleFlag(rulesetId) {
+  const country = countryForRuleset(rulesetId);
+  return country ? country.flag : null;
+}
+
+/**
+ * ルールのチップ列を描く。
+ *   practice … クラシック ＋ 特別ルール（PRO）。選ぶと保存する
+ *   party    … 部屋のルール。ホストだけが変えられる（ランキング対象外）
+ */
+function renderRules() {
+  for (const [wrapId, mode] of [['rule-chips', 'practice'], ['party-rule-seg', 'party']]) {
+    const wrap = $(`#${wrapId}`);
+    if (!wrap) continue;
+    const current = mode === 'practice' ? practiceRulesetId() : app.party.rulesetId;
+    wrap.innerHTML = '';
+    for (const set of rulesetsForMode(mode)) {
+      const locked = !ruleUnlocked(set.id);
+      const active = current === set.id;
+      const flag = ruleFlag(set.id);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `rule-chip${active ? ' is-active' : ''}${locked ? ' is-locked' : ''}`;
+      button.dataset.ruleset = set.id;
+      button.setAttribute('aria-pressed', String(active));
+      button.innerHTML = `${flag ? `<img src="${flag}" alt="" />` : ''}<span>${ruleShortName(set.id)}</span>${
+        locked ? '<em>PRO</em>' : ''
+      }`;
+      button.addEventListener('click', () => selectRule(set.id, mode));
+      wrap.appendChild(button);
+    }
+  }
+  const hint = $('#rule-hint');
+  if (hint) {
+    const id = practiceRulesetId();
+    const special = isSpecialRuleset(id);
+    hint.hidden = !special;
+    hint.textContent = special ? `${ruleName(id)}：${ruleHint(id)}` : '';
+  }
+  /* ホームの「✊3 / ✌️2 / ✋5 pt」は、選んだルールの点数に合わせる */
+  const blockNote = $('#block-note');
+  if (blockNote) {
+    const set = getRuleset(practiceRulesetId());
+    blockNote.textContent = set.hands
+      .map((hand) => `${handLabel(hand)}${pointsFor(hand, set.id)}`)
+      .join(' / ') + ' pt';
+  }
+}
+
+/** ルールを選ぶ（PRO の特別ルールは PRO シートへ案内） */
+function selectRule(rulesetId, mode = 'practice') {
+  if (mode === 'party') {
+    if (app.party.phase === 'playing') return;
+    /* 部屋のルールはホストが決める（合言葉で入った人はホストに合わせる） */
+    if (!app.party.isHost) {
+      toast(T('special.hostOnly'));
+      return;
+    }
+    if (!ruleUnlocked(rulesetId)) {
+      sound.play('locked');
+      openSheet('pro');
+      toast(T('special.locked'));
+      return;
+    }
+    if (app.party.rulesetId === rulesetId) return;
+    app.party.rulesetId = rulesetId;
+    sound.play('select');
+    /* 部屋を立て直すと合言葉が変わってしまうので、開始（party-start）でルールを配る */
+    if (app.online.session?.mode === 'party') app.online.session.rulesetId = rulesetId;
+    renderRules();
+    renderCta();
+    return;
+  }
+  if (!ruleUnlocked(rulesetId)) {
+    sound.play('locked');
+    openSheet('pro');
+    toast(T('special.locked'));
+    return;
+  }
+  if (practiceRulesetId() === rulesetId) return;
+  sound.play('select');
+  persist({ ...app.profile, rulesetId });
+  renderHome();
 }
 
 function setMode(mode) {
@@ -790,8 +929,8 @@ function renderPlayChrome() {
   $('#legend').innerHTML = set.hands
     .map(
       (hand) => `<span class="legend__item">
-        <img src="${HAND_META[hand].asset}" alt="${HAND_META[hand].labelJa}" />
-        <span>${HAND_META[hand].labelJa}</span><b>${pointsFor(hand, set.id)}pt</b>
+        <img src="${HAND_META[hand].asset}" alt="${handLabel(hand)}" />
+        <span>${handLabel(hand)}</span><b>${pointsFor(hand, set.id)}pt</b>
       </span>`,
     )
     .join('');
@@ -805,8 +944,8 @@ function renderPlayChrome() {
     button.dataset.hand = hand;
     button.innerHTML = `
       <span class="handbtn__key">${index + 1}</span>
-      <img src="${HAND_META[hand].asset}" alt="${HAND_META[hand].labelJa}" />
-      <span class="handbtn__name">${HAND_META[hand].labelJa}</span>
+      <img src="${HAND_META[hand].asset}" alt="${handLabel(hand)}" />
+      <span class="handbtn__name">${handLabel(hand)}</span>
       <span class="handbtn__pts">${pointsFor(hand, set.id)}pt</span>
     `;
     button.addEventListener('click', () => selectHand(hand));
@@ -973,12 +1112,20 @@ function startMatch({
   rounds = app.profile.rounds,
   opponentCode = null,
   seed = null,
+  rulesetId = null,
 } = {}) {
   const level = getLevel(levelId);
   const division = divisionForRounds(rounds);
+  /* Build 9: 練習のルール（特別ルールは PRO・ランキング対象外の遊び） */
+  const set = getRuleset(rulesetId ?? practiceRulesetId());
+  const matchSet = set.pro && !isPro() ? getRuleset(RANKED_RULESET) : set;
   const opponent = opponentCode
     ? countryByCode(opponentCode)
-    : pickOpponent({ exclude: app.profile.countryCode, rng: seed == null ? Math.random : makeRng(seed) });
+    : pickOpponent({
+        exclude: app.profile.countryCode,
+        rng: seed == null ? Math.random : makeRng(seed),
+        rulesetId: matchSet.id,
+      });
 
   /* 初回プレイで国籍を登録（以後は変更不可） */
   if (!app.profile.countryLocked) persist(lockCountry(app.profile));
@@ -987,7 +1134,7 @@ function startMatch({
   app.matchKind = 'cpu';
   app.turnMs = level.thinkingTimeMs;
   app.match = createMatch({
-    rulesetId: 'standard',
+    rulesetId: matchSet.id,
     levelId,
     rounds,
     opponent: { code: opponent.code, nameJa: opponent.nameJa },
@@ -1026,7 +1173,7 @@ function startOnlineMatch(opponent) {
   app.online.opponent = opponent;
   app.online.pendingRound = null;
   app.match = createMatch({
-    rulesetId: 'standard',
+    rulesetId: RANKED_RULESET,
     levelId: 'normal',
     rounds,
     opponent: { code: country.code, nameJa: country.nameJa },
@@ -1124,7 +1271,7 @@ function handleTimeout() {
  */
 function selectHand(hand) {
   if (app.phase !== 'thinking') return;
-  if (!getRuleset('standard').hands.includes(hand)) return;
+  if (!getRuleset(app.match?.rulesetId ?? RANKED_RULESET).hands.includes(hand)) return;
   app.selectedHand = hand;
   $$('.handbtn').forEach((button) => {
     button.classList.toggle('is-picked', button.dataset.hand === hand);
@@ -1178,7 +1325,7 @@ function openPods(cpuHand) {
 async function commitRound({ timedOut = false } = {}) {
   if (app.phase !== 'thinking') return;
   const { hand, timedOut: resolvedTimeout } = resolveCommit(app.selectedHand, {
-    rulesetId: 'standard',
+    rulesetId: app.match?.rulesetId ?? RANKED_RULESET,
     rng: app.rng ?? Math.random,
   });
   const isTimeout = Boolean(timedOut || resolvedTimeout);
@@ -1520,6 +1667,7 @@ function openParty() {
   if (app.party.scope === 'world' && !isPro()) app.party.scope = 'domestic';
   openSheet('party');
   renderPartyScope();
+  renderRules();
   createPartyRoom();
 }
 
@@ -1578,7 +1726,7 @@ function createPartyRoom() {
   if (value) value.textContent = code;
   renderPartyScope();
   renderPartyLobby(null);
-  session.openParty({ code, profile: app.profile, scope: app.party.scope });
+  session.openParty({ code, profile: app.profile, scope: app.party.scope, rulesetId: app.party.rulesetId });
 }
 
 function joinPartyRoom() {
@@ -1635,6 +1783,9 @@ function renderPartyLobby(event) {
 function startPartyMatch() {
   const session = app.online.session;
   if (!session || app.party.phase === 'playing') return;
+  /* Build 9: 部屋のルール（ホストが配ったもの）。PRO が無い端末はクラシックへ */
+  const roomRule = getRuleset(session.rulesetId || app.party.rulesetId || RANKED_RULESET);
+  app.party.rulesetId = roomRule.pro && !isPro() ? RANKED_RULESET : roomRule.id;
   app.demoPartyFreeze = false;
   app.party.phase = 'playing';
   app.party.round = 0;
@@ -1681,16 +1832,17 @@ function renderPartyChrome() {
   });
   const handbar = $('#party-handbar');
   handbar.innerHTML = '';
-  getRuleset('standard').hands.forEach((hand, index) => {
+  const partySet = getRuleset(app.party.rulesetId || RANKED_RULESET);
+  partySet.hands.forEach((hand, index) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'handbtn';
     button.dataset.hand = hand;
     button.innerHTML = `
       <span class="handbtn__key">${index + 1}</span>
-      <img src="${HAND_META[hand].asset}" alt="${HAND_META[hand].labelJa}" />
-      <span class="handbtn__name">${HAND_META[hand].labelJa}</span>
-      <span class="handbtn__pts">${pointsFor(hand, 'standard')}pt</span>
+      <img src="${HAND_META[hand].asset}" alt="${handLabel(hand)}" />
+      <span class="handbtn__name">${handLabel(hand)}</span>
+      <span class="handbtn__pts">${pointsFor(hand, partySet.id)}pt</span>
     `;
     button.addEventListener('click', () => selectPartyHand(hand));
     handbar.appendChild(button);
@@ -1770,7 +1922,7 @@ function stopPartyTimer() {
 
 function selectPartyHand(hand) {
   if (app.party.phase !== 'thinking') return;
-  if (!getRuleset('standard').hands.includes(hand)) return;
+  if (!getRuleset(app.party.rulesetId || RANKED_RULESET).hands.includes(hand)) return;
   app.party.selected = hand;
   $$('#party-handbar .handbtn').forEach((button) => {
     button.classList.toggle('is-picked', button.dataset.hand === hand);
@@ -1787,7 +1939,7 @@ function commitPartyHand({ timedOut = false } = {}) {
   const session = app.online.session;
   if (!session) return;
   const { hand, timedOut: resolvedTimeout } = resolveCommit(app.party.selected, {
-    rulesetId: 'standard',
+    rulesetId: app.party.rulesetId || RANKED_RULESET,
     rng: Math.random,
   });
   const isTimeout = Boolean(timedOut || resolvedTimeout);
@@ -1842,7 +1994,7 @@ function applyPartyRound(event) {
   const verdict = $('#party-verdict');
   verdict.classList.add('is-on', event.myPoints > 0 ? 'is-win' : event.threeWay || event.allSame ? 'is-tie' : 'is-lose');
   $('#party-verdict-label').textContent = event.threeWay
-    ? '3すくみ 0pt'
+    ? (getRuleset(app.party.rulesetId || RANKED_RULESET).id === 'standard' ? '3すくみ 0pt' : T('party.spread'))
     : event.allSame
       ? 'あいこ 0pt'
       : event.myPoints > 0 ? `+${event.myPoints}pt` : '±0';
@@ -2073,8 +2225,11 @@ function renderResult(summary) {
   animateNumber($('#result-points'), summary.playerPoints, 0, 900);
 
   const ranked = app.resultRanked;
+  const specialMatch = isSpecialRuleset(app.match?.rulesetId);
   $('#rank-card').hidden = !ranked;
-  $('#result-note').hidden = ranked;
+  /* Build 9: 特別ルールの結果はランキング対象外（ひとこと添える） */
+  $('#result-note').hidden = ranked && !specialMatch;
+  $('#result-note').textContent = specialMatch ? T('special.resultNote') : T('party.unranked');
   if (ranked) {
     $('#rank-scope-label').textContent = app.resultScope === 'world' ? T('result.world') : T('result.domestic');
     $('#rank-division').textContent = meta.label;
@@ -2133,7 +2288,7 @@ function renderResult(summary) {
 
   $('#again-sub').textContent = app.matchKind === 'online'
     ? `ONLINE ・ ${app.match.rounds}回戦 ・ 5.0s`
-    : `${getLevel(app.match.levelId).label} ・ CLASSIC ・ ${app.match.rounds}回戦`;
+    : `${getLevel(app.match.levelId).label} ・ ${ruleShortName(app.match.rulesetId)} ・ ${app.match.rounds}回戦`;
 }
 
 function renderResultHandstats(summary) {
@@ -2523,8 +2678,14 @@ function previewCountryVoice(country, button) {
   return true;
 }
 
+function renderCountryLang() {
+  const langLabel = $('#country-lang-label');
+  if (langLabel) langLabel.textContent = i18n.localeMeta(app.locale).label;
+}
+
 function renderCountryGrid() {
   stopCountryPreview();
+  renderCountryLang();
   const grid = $('#country-grid');
   const locked = !canChangeCountry(app.profile);
   const lockNote = $('#country-lock-note');
@@ -2642,6 +2803,9 @@ function applyLanguage() {
   renderSettings();
   renderHowto();
   renderPrivacy();
+  renderCountryLang();
+  if ($('#sheet-country') && $('#sheet-country').hidden === false) renderCountryGrid();
+  if ($('#sheet-party') && $('#sheet-party').hidden === false) renderPartyScope();
   if ($('#sheet-ranking').hidden === false) renderRanking();
   if ($('#sheet-online').hidden === false) renderOnlineSheet();
 }
@@ -2654,7 +2818,7 @@ function renderHowto() {
     .map((key) => `<li><b>${P(`howto.${key}.title`)}</b><span>${P(`howto.${key}.body`)}</span></li>`)
     .join('');
   $('#howto-legend').innerHTML = getRuleset('standard').hands
-    .map((hand) => `<span class="howto-legend__item"><img src="${HAND_META[hand].asset}" alt="" />${HAND_META[hand].labelJa} ${pointsFor(hand, 'standard')}pt</span>`)
+    .map((hand) => `<span class="howto-legend__item"><img src="${HAND_META[hand].asset}" alt="" />${handLabel(hand)} ${pointsFor(hand, 'standard')}pt</span>`)
     .join('');
   $('#legal-note').textContent = P('legal.lead');
 }
@@ -2697,6 +2861,9 @@ function setPro(on) {
   let next = applyPro(app.profile, on);
   if (!on) {
     if (LEVELS[next.levelId]?.pro) next = { ...next, levelId: 'normal' };
+    /* Build 9: 世界の特別ルールも PRO の遊び。切れたらクラシックに戻す */
+    if (isSpecialRuleset(next.rulesetId)) next = { ...next, rulesetId: RANKED_RULESET };
+    if (isSpecialRuleset(app.party.rulesetId)) app.party.rulesetId = RANKED_RULESET;
     if (app.online.scope === 'world') app.online.scope = 'domestic';
     if (app.rankView.scope === 'world') app.rankView.scope = 'domestic';
     /* 世界パーティーを開いていたら、国内に戻す（無料でも続けられる） */
@@ -2777,6 +2944,8 @@ function closeSheet() {
     $$('.sheet').forEach((sheet) => {
       sheet.hidden = sheet.dataset.sheet !== previous;
     });
+    if (previous === 'country') renderCountryGrid();
+    if (previous === 'party') renderPartyScope();
     app.lastInput = Date.now();
     return;
   }
@@ -2979,6 +3148,14 @@ function bindEvents() {
 
   $('#btn-result-ranking').addEventListener('click', () => openSheet('ranking'));
   $('#btn-country').addEventListener('click', () => openSheet('country'));
+  /* Build 9: 国をえらぶの🌐（言語ピル）。開いている国シートの上に言語シートを重ねる */
+  const langPill = $('#btn-country-lang');
+  if (langPill) {
+    langPill.addEventListener('click', () => {
+      sound.play('click');
+      openSheet('language', { nested: true });
+    });
+  }
   $('#btn-country-confirm').addEventListener('click', confirmCountry);
   $('#set-country').addEventListener('click', () => openSheet('country', { nested: true }));
   $('#btn-chant-toggle').addEventListener('click', toggleChantSide);
@@ -3155,12 +3332,12 @@ function bindEvents() {
     }
     if ($('#overlay').hidden === false) return;
     if (app.view === 'play' && app.phase === 'thinking') {
-      const hands = getRuleset('standard').hands;
+      const hands = getRuleset(app.match?.rulesetId ?? RANKED_RULESET).hands;
       const index = Number(event.key) - 1;
       if (Number.isInteger(index) && hands[index]) selectHand(hands[index]);
     }
     if (app.view === 'party' && app.party.phase === 'thinking') {
-      const hands = getRuleset('standard').hands;
+      const hands = getRuleset(app.party.rulesetId || RANKED_RULESET).hands;
       const index = Number(event.key) - 1;
       if (Number.isInteger(index) && hands[index]) selectPartyHand(hands[index]);
     }
@@ -3186,7 +3363,12 @@ function bindEvents() {
 
 function boot() {
   if (!hasCountry(app.profile.countryCode)) app.profile.countryCode = DEFAULT_COUNTRY;
-  if (!i18n.isLocale(app.locale)) app.locale = i18n.detectLocale(navigator.language);
+  /* Build 9: 言語がまだ決まっていない（初回）なら端末の言語から選ぶ。
+     12言語のどれでもない端末は英語（detectLocale の FALLBACK_LOCALE）。 */
+  if (!i18n.isLocale(app.profile.locale)) {
+    app.profile.locale = i18n.detectLocale(navigator.language);
+  }
+  app.locale = app.profile.locale;
   document.documentElement.lang = i18n.localeMeta(app.locale).tag;
   app.division = divisionForRounds(app.profile.rounds);
   app.rankView.division = app.division;
@@ -3221,7 +3403,7 @@ function boot() {
 
   window.JANKeNPoN = {
     version: '1.0.0',
-    build: 8,
+    build: 9,
     /* Build 8: オープニング（自動テストは skipOpening() で飛ばせる） */
     get opening() {
       const el = openingElement();
@@ -3236,6 +3418,9 @@ function boot() {
     skipOpening: () => finishOpening('api'),
     get profile() {
       return app.profile;
+    },
+    get locale() {
+      return app.locale;
     },
     get textScale() {
       return app.profile.textScale;
@@ -3301,7 +3486,34 @@ function boot() {
         players: app.party.players.map((player) => player.nickname),
         round: app.party.round,
         phase: app.party.phase,
+        rulesetId: app.party.rulesetId,
+        isHost: app.party.isHost,
       };
+    },
+    /** Build 9: いま使うルール（練習・パーティー・通信の固定） */
+    get rules() {
+      return {
+        practice: practiceRulesetId(),
+        saved: app.profile.rulesetId,
+        party: app.party.rulesetId,
+        online: RANKED_RULESET,
+        special: [...SPECIAL_RULESETS],
+        chips: rulesetsForMode('practice').map((set) => ({
+          id: set.id,
+          name: ruleShortName(set.id),
+          locked: !ruleUnlocked(set.id),
+          hands: set.hands.slice(),
+        })),
+      };
+    },
+    setRuleset(id) {
+      selectRule(id, 'practice');
+      return practiceRulesetId();
+    },
+    setPartyRuleset(id) {
+      app.party.isHost = true;
+      selectRule(id, 'party');
+      return app.party.rulesetId;
     },
     /** テスト用: 「これで決定」を押したのと同じ */
     lock() {

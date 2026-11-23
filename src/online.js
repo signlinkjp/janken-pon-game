@@ -39,6 +39,16 @@ import {
   resolveTimeout,
 } from './core.js';
 
+/** 未知のルールIDはクラシックに落とす（通信で来た値もこれを通す） */
+export function safeRulesetId(value, fallback = 'standard') {
+  const id = typeof value === 'string' ? value : '';
+  try {
+    return getRuleset(id).id;
+  } catch {
+    return fallback;
+  }
+}
+
 /* ------------------------------------------------------------------ *\
  * 接続先（Supabase → Project Settings → API の公開値）
  *
@@ -612,6 +622,8 @@ export class OnlineSession {
     this.partyPicks = new Map();
     this.partyTimer = null;
     this.partyOver = false;
+    /* Build 9: 部屋のルール（既定はクラシック。世界の特別ルールは PRO のみ） */
+    this.rulesetId = 'standard';
     /* 画面に出す待機の残り秒（テストと UI のため） */
     this.remainingMs = 0;
     this.knownNames = new Map();
@@ -1021,12 +1033,16 @@ export class OnlineSession {
 
   /* --- パーティーバトル（2〜4人・5回戦） --------------------------- */
 
-  openParty({ code, profile = {}, mode = 'create', scope = 'domestic' } = {}) {
+  openParty({ code, profile = {}, mode = 'create', scope = 'domestic', rulesetId = 'standard' } = {}) {
     this.reset();
     this.mode = 'party';
     this.rounds = PARTY_ROUNDS;
     this.profile = { ...profile };
     this.partyMode = mode;
+    /* Build 9: ホストが選んだルールで部屋を立てる。世界の特別ルールは PRO のみ
+       （合言葉で入ってきた無料の人は、ホストが配ったルールで一緒に遊べる） */
+    const wanted = safeRulesetId(rulesetId);
+    this.rulesetId = mode === 'create' && getRuleset(wanted).pro && !profile?.pro ? 'standard' : wanted;
     /* 国内は無料・世界は PRO（Build 3）。世界を無料で開こうとしたら断る */
     this.scope = scope === 'world' ? 'world' : 'domestic';
     if (this.scope === 'world' && !profile?.pro) {
@@ -1121,16 +1137,18 @@ export class OnlineSession {
       if (payload.from === mine) return;
       this.started = true;
       this.rounds = Number(payload.rounds) === PARTY_ROUNDS ? PARTY_ROUNDS : PARTY_ROUNDS;
+      /* Build 9: ルールはホストが配る（全員が同じ盤面で遊ぶ） */
+      this.rulesetId = safeRulesetId(payload.rulesetId, this.rulesetId);
       this.partyRound = -1;
       this.partyPoints = new Map(this.players.map((player) => [player.key, 0]));
-      this.emit({ type: 'party-started', round: 0, players: this.players });
+      this.emit({ type: 'party-started', round: 0, players: this.players, rulesetId: this.rulesetId });
       return;
     }
     if (event === 'party-pick') {
       if (payload.from === mine) return;
       const round = Number(payload.round);
       if (!Number.isInteger(round) || round < 0 || round >= this.rounds) return;
-      if (!getRuleset('standard').hands.includes(payload.hand)) return;
+      if (!getRuleset(this.rulesetId).hands.includes(payload.hand)) return;
       const key = `${payload.from}:${round}`;
       if (this.partyPicks.has(key)) return;
       this.partyPicks.set(key, payload.hand);
@@ -1147,7 +1165,7 @@ export class OnlineSession {
       const hands = {};
       for (const player of this.players) {
         const hand = picks[player.key];
-        if (getRuleset('standard').hands.includes(hand)) hands[player.key] = hand;
+        if (getRuleset(this.rulesetId).hands.includes(hand)) hands[player.key] = hand;
       }
       if (Object.keys(hands).length < PARTY_MIN_PLAYERS) return;
       this.applyPartyRound(round, hands);
@@ -1181,8 +1199,9 @@ export class OnlineSession {
     this.client.broadcast(this.channel, 'party-start', {
       from: this.client.clientId,
       rounds: PARTY_ROUNDS,
+      rulesetId: this.rulesetId,
     });
-    this.emit({ type: 'party-started', round: 0, players: this.players });
+    this.emit({ type: 'party-started', round: 0, players: this.players, rulesetId: this.rulesetId });
     return true;
   }
 
@@ -1191,7 +1210,7 @@ export class OnlineSession {
     if (this.mode !== 'party' || this.partyOver) return false;
     const index = Number(round);
     if (!Number.isInteger(index) || index < 0 || index >= this.rounds) return false;
-    if (!getRuleset('standard').hands.includes(hand)) return false;
+    if (!getRuleset(this.rulesetId).hands.includes(hand)) return false;
     const key = `${this.client.clientId}:${index}`;
     if (this.partyPicks.has(key)) return false;
     const sent = this.client.broadcast(this.channel, 'party-pick', {
@@ -1234,7 +1253,7 @@ export class OnlineSession {
     if (missing && !complete) return null;
     if (missing) {
       for (const player of this.players) {
-        if (!picks[player.key]) picks[player.key] = resolveTimeout('standard', this.random).hand;
+        if (!picks[player.key]) picks[player.key] = resolveTimeout(this.rulesetId, this.random).hand;
       }
     }
     if (this.partyTimer) {
@@ -1254,7 +1273,7 @@ export class OnlineSession {
     if (this.partyRevealed?.has(round)) return null;
     this.partyRevealed = this.partyRevealed ?? new Set();
     this.partyRevealed.add(round);
-    const score = scorePartyRound(hands);
+    const score = scorePartyRound(hands, this.rulesetId);
     for (const [key, points] of Object.entries(score.points)) {
       this.partyPoints.set(key, (this.partyPoints.get(key) ?? 0) + points);
     }
@@ -1330,6 +1349,7 @@ export class OnlineSession {
     this.partyRevealed = new Set();
     this.partyRound = -1;
     this.partyOver = false;
+    this.rulesetId = 'standard';
     this.started = false;
     this.opponentSeen = false;
     this.leftNotified = false;

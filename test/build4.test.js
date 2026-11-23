@@ -115,24 +115,24 @@ test('PK履歴: セルは勝敗で is-win / is-lose / is-tie を付ける', () =
  * 3. ビルド番号 4
  * ================================================================== */
 
-test('ビルド: iOS プロジェクトもアプリも Build 8', () => {
+test('ビルド: iOS プロジェクトもアプリも Build 9', () => {
   const pbx = read('ios/App/App.xcodeproj/project.pbxproj');
   const numbers = [...pbx.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map((m) => Number(m[1]));
   assert.equal(numbers.length, 2, 'Debug / Release の2箇所');
-  assert.deepEqual(numbers, [8, 8], '2箇所とも 8');
+  assert.deepEqual(numbers, [9, 9], '2箇所とも 9');
   assert.ok(pbx.includes('MARKETING_VERSION = 1.0.0;'), '表示バージョンは 1.0.0 のまま');
-  assert.ok(/version: '1\.0\.0',\s*build: 8,/.test(MAIN), 'アプリ側の build も 8');
-  assert.ok(read('index.html').includes('(Build 8)'), '設定の版表示も Build 8');
+  assert.ok(/version: '1\.0\.0',\s*build: 9,/.test(MAIN), 'アプリ側の build も 9');
+  assert.ok(read('index.html').includes('(Build 9)'), '設定の版表示も Build 9');
 });
 
-test('www: 配布用の写しも Build 8（node tools/make-www.mjs で同期）', async () => {
+test('www: 配布用の写しも Build 9（node tools/make-www.mjs で同期）', async () => {
   /* www/ はリポジトリに入れない（.gitignore）ので、ここで作ってから見る。
      CI でも preflight の「Guard the shipped game files」と同じものを作る。 */
   const { makeWww } = await import('../tools/make-www.mjs');
   await makeWww();
   assert.ok(exists('www/index.html'), 'www/ がある');
-  assert.ok(read('www/index.html').includes('(Build 8)'), 'www の版表示も Build 8');
-  assert.ok(/version: '1\.0\.0',\s*build: 8,/.test(read('www/src/main.js')), 'www の main.js も 8');
+  assert.ok(read('www/index.html').includes('(Build 9)'), 'www の版表示も Build 9');
+  assert.ok(/version: '1\.0\.0',\s*build: 9,/.test(read('www/src/main.js')), 'www の main.js も 9');
   assert.ok(
     read('www/styles.css').includes('.round-row.is-lose { border-color: rgba(221, 59, 59, 0.28);'),
     'www の CSS も赤枠',

@@ -249,21 +249,21 @@ test('オープニング: 既存のブラウザ確認は ?fast=1 で開幕を飛
  * 3. ビルド番号 8 と www 同期
  * ================================================================== */
 
-test('ビルド: iOS プロジェクトもアプリも Build 8', () => {
+test('ビルド: iOS プロジェクトもアプリも Build 9', () => {
   const pbx = read('ios/App/App.xcodeproj/project.pbxproj');
   const numbers = [...pbx.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map((m) => Number(m[1]));
   assert.equal(numbers.length, 2, 'Debug / Release の2箇所');
-  assert.deepEqual(numbers, [8, 8], '2箇所とも 8');
+  assert.deepEqual(numbers, [9, 9], '2箇所とも 9');
   assert.ok(pbx.includes('MARKETING_VERSION = 1.0.0;'), '表示バージョンは 1.0.0 のまま');
-  assert.ok(/version: '1\.0\.0',\s*build: 8,/.test(MAIN), 'アプリ側の build も 8');
-  assert.ok(HTML.includes('(Build 8)'), '設定の版表示も Build 8');
+  assert.ok(/version: '1\.0\.0',\s*build: 9,/.test(MAIN), 'アプリ側の build も 9');
+  assert.ok(HTML.includes('(Build 9)'), '設定の版表示も Build 9');
 });
 
-test('www: 配布用の写しにも Build 8・🔊・オープニングが入る', async () => {
+test('www: 配布用の写しにも Build 9・🔊・オープニングが入る', async () => {
   const { makeWww } = await import('../tools/make-www.mjs');
   await makeWww();
-  assert.ok(read('www/index.html').includes('(Build 8)'));
-  assert.ok(/version: '1\.0\.0',\s*build: 8,/.test(read('www/src/main.js')));
+  assert.ok(read('www/index.html').includes('(Build 9)'));
+  assert.ok(/version: '1\.0\.0',\s*build: 9,/.test(read('www/src/main.js')));
   assert.ok(read('www/index.html').includes('country-item__preview') === false, 'DOM は JS が作る');
   assert.ok(read('www/src/main.js').includes('country-item__preview'), 'www の JS に 🔊');
   assert.ok(read('www/index.html').includes('id="opening"'), 'www の画面にオープニング');
@@ -272,7 +272,7 @@ test('www: 配布用の写しにも Build 8・🔊・オープニングが入る
   assert.ok(exists('www/assets/icons/1f30f.svg'), 'www に地球');
 });
 
-test('テスト: package.json の npm test が build8 を最後に走らせる', () => {
+test('テスト: package.json の npm test が build9 を最後に走らせる', () => {
   const pkg = JSON.parse(read('package.json'));
   const script = pkg.scripts.test;
   assert.ok(script.includes('--test-concurrency=1'), 'www/ を共有するので直列');
@@ -280,10 +280,11 @@ test('テスト: package.json の npm test が build8 を最後に走らせる',
   assert.deepEqual(order, [
     'test/core.test.js', 'test/online.test.js', 'test/build1.test.js',
     'test/build2.test.js', 'test/build3.test.js', 'test/build4.test.js',
-    'test/build5.test.js', 'test/build6.test.js', 'test/build7.test.js', 'test/build8.test.js',
+    'test/build5.test.js', 'test/build6.test.js', 'test/build7.test.js',
+    'test/build8.test.js', 'test/build9.test.js',
   ]);
-  assert.ok(readdirSync(resolve(ROOT, 'test')).includes('build8.test.js'));
-  assert.ok(pkg.description.includes('Build 8'), 'package.json の説明も Build 8');
+  assert.ok(readdirSync(resolve(ROOT, 'test')).includes('build9.test.js'));
+  assert.ok(pkg.description.includes('Build 9'), 'package.json の説明も Build 9');
 });
 
 test('確認スクリプト: 実ブラウザで 🔊 と開幕を見る tools/shots-b8.mjs がある', () => {

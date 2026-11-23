@@ -26,6 +26,12 @@ export const LOCALES = Object.freeze([
 
 export const DEFAULT_LOCALE = 'ja';
 
+/**
+ * 端末の言語が12言語のどれでもないときの表示（Build 9）。
+ * 世界向けのアプリなので、判断できない言語には日本語ではなく英語を出す。
+ */
+export const FALLBACK_LOCALE = 'en';
+
 export function localeMeta(id) {
   return LOCALES.find((locale) => locale.id === id) ?? LOCALES[0];
 }
@@ -34,10 +40,13 @@ export function isLocale(id) {
   return LOCALES.some((locale) => locale.id === id);
 }
 
-/** 端末の言語タグから近いロケールを選ぶ */
+/**
+ * 端末の言語タグから近いロケールを選ぶ。
+ * 12言語のどれにも当たらないタグ（タイ語・アラビア語・空文字など）は 'en'。
+ */
 export function detectLocale(tag = '') {
   const raw = String(tag || '').toLowerCase();
-  if (!raw) return DEFAULT_LOCALE;
+  if (!raw) return FALLBACK_LOCALE;
   if (raw.startsWith('ja')) return 'ja';
   if (raw.startsWith('ko')) return 'ko';
   if (raw.startsWith('zh-hant') || raw.startsWith('zh-tw') || raw.startsWith('zh-hk')) return 'zh-Hant';
@@ -51,8 +60,10 @@ export function detectLocale(tag = '') {
   if (raw.startsWith('id')) {
     return id_is_indonesian(raw) ? 'id' : 'en';
   }
+  /* 古い Android のインドネシア語は 'in'（現在は 'id'） */
+  if (raw === 'in' || raw.startsWith('in-')) return 'id';
   if (raw.startsWith('en')) return 'en';
-  return DEFAULT_LOCALE;
+  return FALLBACK_LOCALE;
 }
 
 function id_is_indonesian(raw) {
@@ -87,6 +98,7 @@ export const KEYS = Object.freeze([
   'toast.countryLocked', 'toast.countryRegistered', 'toast.textSize',
   'howto.title', 'legal.title', 'legal.updated', 'legal.note',
   'misc.on', 'misc.off', 'misc.close', 'misc.back', 'misc.pts',
+  'country.langSwitch', 'special.label', 'special.proNote', 'special.locked', 'special.rankedNote', 'special.partyLabel', 'special.hostOnly', 'special.resultNote', 'party.spread', 'pro.item6',
   'toast.lang', 'toast.proOn', 'toast.proOff', 'toast.rankOnly', 'toast.resetDone', 'toast.offline',
 ]);
 
@@ -169,6 +181,16 @@ const ja = {
   'toast.lang': '言語を切り替えました', 'toast.proOn': 'JANKeN PoN PRO を体験中（課金は発生しません）',
   'toast.proOff': 'PRO をオフにしました', 'toast.rankOnly': '国内ランキングは無料で参加できます',
   'toast.resetDone': '練習データをリセットしました', 'toast.offline': '通信に接続できません。CPU練習で遊べます',
+  'country.langSwitch': '言語をかえる',
+  'special.label': 'ルール',
+  'special.proNote': '世界の特別ルール（PRO）。CPU練習とパーティーで遊べます。ランキング対象外。',
+  'special.locked': 'PROで解禁',
+  'special.rankedNote': '通信対戦（ランキング）はクラシック固定です。',
+  'special.partyLabel': 'ルール（ホストが選ぶ）',
+  'special.hostOnly': 'ルールはホストが決めます',
+  'special.resultNote': '特別ルールの結果はランキングに加算されません。',
+  'party.spread': 'バラバラ 0pt',
+  'pro.item6': '世界の特別ルール（ゾウ・人間・アリ／井戸つき）',
 };
 
 const en = {
@@ -249,6 +271,16 @@ const en = {
   'toast.lang': 'Language changed', 'toast.proOn': 'Trying JANKeN PoN PRO (no charge)',
   'toast.proOff': 'PRO turned off', 'toast.rankOnly': 'The national ranking is free to join',
   'toast.resetDone': 'Practice data reset', 'toast.offline': 'No connection. CPU practice is available',
+  'country.langSwitch': 'Change language',
+  'special.label': 'Rule',
+  'special.proNote': 'World special rules (PRO) for CPU practice and party. Unranked.',
+  'special.locked': 'PRO unlock',
+  'special.rankedNote': 'Online ranked matches stay classic.',
+  'special.partyLabel': 'Rule (host picks)',
+  'special.hostOnly': 'The host picks the rule',
+  'special.resultNote': 'Special-rule results never count toward the ranking.',
+  'party.spread': 'All different 0pt',
+  'pro.item6': 'World special rules (Elephant–Human–Ant / Well)',
 };
 
 const ko = {
@@ -329,6 +361,16 @@ const ko = {
   'toast.lang': '언어를 바꿨습니다', 'toast.proOn': 'JANKeN PoN PRO 체험 중 (결제 없음)',
   'toast.proOff': 'PRO를 껐습니다', 'toast.rankOnly': '국내 랭킹은 무료로 참가할 수 있습니다',
   'toast.resetDone': '연습 기록을 초기화했습니다', 'toast.offline': '연결할 수 없습니다. CPU 연습으로 놀 수 있습니다',
+  'country.langSwitch': '언어 바꾸기',
+  'special.label': '규칙',
+  'special.proNote': '세계의 특별 규칙(PRO). CPU 연습과 파티에서 즐길 수 있어요. 랭킹 대상 아님.',
+  'special.locked': 'PRO로 해금',
+  'special.rankedNote': '온라인 랭킹 대전은 클래식 고정입니다.',
+  'special.partyLabel': '규칙 (호스트 선택)',
+  'special.hostOnly': '규칙은 호스트가 정합니다',
+  'special.resultNote': '특별 규칙 결과는 랭킹에 더해지지 않습니다.',
+  'party.spread': '모두 다름 0pt',
+  'pro.item6': '세계의 특별 규칙 (코끼리·사람·개미 / 우물)',
 };
 
 const zhHans = {
@@ -409,6 +451,16 @@ const zhHans = {
   'toast.lang': '已切换语言', 'toast.proOn': '正在体验 JANKeN PoN PRO（不产生费用）',
   'toast.proOff': '已关闭 PRO', 'toast.rankOnly': '国内排行榜可免费参加',
   'toast.resetDone': '练习数据已重置', 'toast.offline': '无法连接。可以玩 CPU 练习',
+  'country.langSwitch': '切换语言',
+  'special.label': '规则',
+  'special.proNote': '世界特别规则（PRO）。可在CPU练习和派对中游玩，不计入排行榜。',
+  'special.locked': 'PRO 解锁',
+  'special.rankedNote': '联机排行对战固定为经典规则。',
+  'special.partyLabel': '规则（房主选择）',
+  'special.hostOnly': '规则由房主决定',
+  'special.resultNote': '特别规则的结果不计入排行榜。',
+  'party.spread': '全不同 0pt',
+  'pro.item6': '世界特别规则（象・人・蚂蚁／井）',
 };
 
 const zhHant = {
@@ -489,6 +541,16 @@ const zhHant = {
   'toast.lang': '已切換語言', 'toast.proOn': '正在體驗 JANKeN PoN PRO（不產生費用）',
   'toast.proOff': '已關閉 PRO', 'toast.rankOnly': '國內排行榜可免費參加',
   'toast.resetDone': '練習資料已重設', 'toast.offline': '無法連線。可以玩 CPU 練習',
+  'country.langSwitch': '切換語言',
+  'special.label': '規則',
+  'special.proNote': '世界特別規則（PRO）。可在CPU練習和派對中遊玩，不計入排行榜。',
+  'special.locked': 'PRO 解鎖',
+  'special.rankedNote': '連線排行對戰固定為經典規則。',
+  'special.partyLabel': '規則（房主選擇）',
+  'special.hostOnly': '規則由房主決定',
+  'special.resultNote': '特別規則的結果不計入排行榜。',
+  'party.spread': '全不同 0pt',
+  'pro.item6': '世界特別規則（象・人・螞蟻／井）',
 };
 
 const es = {
@@ -569,6 +631,16 @@ const es = {
   'toast.lang': 'Idioma cambiado', 'toast.proOn': 'Probando JANKeN PoN PRO (sin cargo)',
   'toast.proOff': 'PRO desactivado', 'toast.rankOnly': 'El ranking nacional es gratis',
   'toast.resetDone': 'Datos de práctica borrados', 'toast.offline': 'Sin conexión. Puedes practicar con la CPU',
+  'country.langSwitch': 'Cambiar idioma',
+  'special.label': 'Regla',
+  'special.proNote': 'Reglas especiales del mundo (PRO) para práctica CPU y fiesta. Sin clasificación.',
+  'special.locked': 'Se abre con PRO',
+  'special.rankedNote': 'Las partidas online con clasificación son siempre clásicas.',
+  'special.partyLabel': 'Regla (la elige el anfitrión)',
+  'special.hostOnly': 'El anfitrión elige la regla',
+  'special.resultNote': 'Los resultados de reglas especiales no cuentan para la clasificación.',
+  'party.spread': 'Todas distintas 0pt',
+  'pro.item6': 'Reglas especiales del mundo (elefante–humano–hormiga / pozo)',
 };
 
 const fr = {
@@ -649,6 +721,16 @@ const fr = {
   'toast.lang': 'Langue changée', 'toast.proOn': 'Essai de JANKeN PoN PRO (sans frais)',
   'toast.proOff': 'PRO désactivé', 'toast.rankOnly': 'Le classement national est gratuit',
   'toast.resetDone': 'Entraînement effacé', 'toast.offline': 'Pas de connexion. Entraînement CPU disponible',
+  'country.langSwitch': 'Changer de langue',
+  'special.label': 'Règle',
+  'special.proNote': 'Règles spéciales du monde (PRO) pour l’entraînement CPU et la fête. Hors classement.',
+  'special.locked': 'Débloqué avec PRO',
+  'special.rankedNote': 'Les parties classées en ligne restent en classique.',
+  'special.partyLabel': 'Règle (choisie par l’hôte)',
+  'special.hostOnly': 'L’hôte choisit la règle',
+  'special.resultNote': 'Les résultats des règles spéciales ne comptent pas au classement.',
+  'party.spread': 'Toutes différentes 0pt',
+  'pro.item6': 'Règles spéciales (éléphant–humain–fourmi / puits)',
 };
 
 const de = {
@@ -729,6 +811,16 @@ const de = {
   'toast.lang': 'Sprache geändert', 'toast.proOn': 'JANKeN PoN PRO wird getestet (kostenlos)',
   'toast.proOff': 'PRO aus', 'toast.rankOnly': 'Die nationale Rangliste ist kostenlos',
   'toast.resetDone': 'Übungsdaten gelöscht', 'toast.offline': 'Keine Verbindung. CPU-Übung ist verfügbar',
+  'country.langSwitch': 'Sprache ändern',
+  'special.label': 'Regel',
+  'special.proNote': 'Besondere Weltregeln (PRO) für CPU-Training und Party. Ohne Rangliste.',
+  'special.locked': 'Mit PRO frei',
+  'special.rankedNote': 'Online-Ranglistenspiele bleiben klassisch.',
+  'special.partyLabel': 'Regel (Gastgeber wählt)',
+  'special.hostOnly': 'Der Gastgeber wählt die Regel',
+  'special.resultNote': 'Ergebnisse mit Sonderregeln zählen nicht für die Rangliste.',
+  'party.spread': 'Alle verschieden 0pt',
+  'pro.item6': 'Besondere Weltregeln (Elefant–Mensch–Ameise / Brunnen)',
 };
 
 const pt = {
@@ -809,6 +901,16 @@ const pt = {
   'toast.lang': 'Idioma alterado', 'toast.proOn': 'Testando o JANKeN PoN PRO (sem cobrança)',
   'toast.proOff': 'PRO desligado', 'toast.rankOnly': 'O ranking nacional é grátis',
   'toast.resetDone': 'Dados de treino apagados', 'toast.offline': 'Sem conexão. O treino com CPU está disponível',
+  'country.langSwitch': 'Mudar idioma',
+  'special.label': 'Regra',
+  'special.proNote': 'Regras especiais do mundo (PRO) para treino CPU e festa. Fora do ranking.',
+  'special.locked': 'Libera com PRO',
+  'special.rankedNote': 'As partidas online com ranking são sempre clássicas.',
+  'special.partyLabel': 'Regra (o anfitrião escolhe)',
+  'special.hostOnly': 'O anfitrião escolhe a regra',
+  'special.resultNote': 'Resultados de regras especiais não contam para o ranking.',
+  'party.spread': 'Todas diferentes 0pt',
+  'pro.item6': 'Regras especiais (elefante–humano–formiga / poço)',
 };
 
 const it = {
@@ -889,6 +991,16 @@ const it = {
   'toast.lang': 'Lingua cambiata', 'toast.proOn': 'Prova di JANKeN PoN PRO (senza addebito)',
   'toast.proOff': 'PRO disattivato', 'toast.rankOnly': 'La classifica nazionale è gratuita',
   'toast.resetDone': 'Allenamento azzerato', 'toast.offline': 'Nessuna connessione. Puoi allenarti con la CPU',
+  'country.langSwitch': 'Cambia lingua',
+  'special.label': 'Regola',
+  'special.proNote': 'Regole speciali del mondo (PRO) per allenamento CPU e festa. Fuori classifica.',
+  'special.locked': 'Si sblocca con PRO',
+  'special.rankedNote': 'Le partite online con classifica restano classiche.',
+  'special.partyLabel': 'Regola (sceglie l’host)',
+  'special.hostOnly': 'L’host sceglie la regola',
+  'special.resultNote': 'I risultati delle regole speciali non contano per la classifica.',
+  'party.spread': 'Tutte diverse 0pt',
+  'pro.item6': 'Regole speciali (elefante–umano–formica / pozzo)',
 };
 
 const hi = {
@@ -969,6 +1081,16 @@ const hi = {
   'toast.lang': 'भाषा बदली', 'toast.proOn': 'JANKeN PoN PRO आज़माइश (कोई शुल्क नहीं)',
   'toast.proOff': 'PRO बंद', 'toast.rankOnly': 'घरेलू रैंकिंग मुफ़्त है',
   'toast.resetDone': 'अभ्यास डेटा रीसेट', 'toast.offline': 'कनेक्शन नहीं। CPU अभ्यास उपलब्ध है',
+  'country.langSwitch': 'भाषा बदलें',
+  'special.label': 'नियम',
+  'special.proNote': 'विश्व की विशेष नियम (PRO) — CPU अभ्यास और पार्टी के लिए। रैंकिंग से बाहर।',
+  'special.locked': 'PRO से खुलेगा',
+  'special.rankedNote': 'ऑनलाइन रैंकिंग मैच हमेशा क्लासिक रहते हैं।',
+  'special.partyLabel': 'नियम (होस्ट चुनता है)',
+  'special.hostOnly': 'नियम होस्ट तय करता है',
+  'special.resultNote': 'विशेष नियमों के परिणाम रैंकिंग में नहीं जुड़ते।',
+  'party.spread': 'सभी अलग 0pt',
+  'pro.item6': 'विशेष नियम (हाथी–मनुष्य–चींटी / कुआँ)',
 };
 
 const id = {
@@ -1049,6 +1171,16 @@ const id = {
   'toast.lang': 'Bahasa diganti', 'toast.proOn': 'Mencoba JANKeN PoN PRO (tanpa biaya)',
   'toast.proOff': 'PRO dimatikan', 'toast.rankOnly': 'Peringkat nasional gratis',
   'toast.resetDone': 'Data latihan dihapus', 'toast.offline': 'Tanpa koneksi. Latihan CPU tersedia',
+  'country.langSwitch': 'Ganti bahasa',
+  'special.label': 'Aturan',
+  'special.proNote': 'Aturan khusus dunia (PRO) untuk latihan CPU dan pesta. Di luar peringkat.',
+  'special.locked': 'Terbuka dengan PRO',
+  'special.rankedNote': 'Pertandingan online berperingkat selalu klasik.',
+  'special.partyLabel': 'Aturan (dipilih host)',
+  'special.hostOnly': 'Aturan ditentukan host',
+  'special.resultNote': 'Hasil aturan khusus tidak masuk peringkat.',
+  'party.spread': 'Semua beda 0pt',
+  'pro.item6': 'Aturan khusus (gajah–manusia–semut / sumur)',
 };
 
 export const DICT = Object.freeze({

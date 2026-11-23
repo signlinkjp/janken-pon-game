@@ -101,7 +101,10 @@ export const RULESETS = Object.freeze({
     id: 'standard',
     nameJa: 'クラシック',
     nameEn: 'CLASSIC',
+    shortJa: 'クラシック',
+    shortEn: 'CLASSIC',
     rulesJa: 'グー3 ・ チョキ2 ・ パー5',
+    rulesEn: 'ROCK 3 · SCISSORS 2 · PAPER 5',
     hands: ['rock', 'scissors', 'paper'],
     points: { rock: 3, scissors: 2, paper: 5 },
     beats: { rock: ['scissors'], scissors: ['paper'], paper: ['rock'] },
@@ -111,38 +114,60 @@ export const RULESETS = Object.freeze({
     id: 'epa',
     nameJa: 'ゾウ・人間・アリ',
     nameEn: 'ELEPHANT / HUMAN / ANT',
+    shortJa: 'ゾウ・人間・アリ',
+    shortEn: 'ELEPHANT',
     rulesJa: 'ゾウ3 ・ 人間2 ・ アリ5',
+    rulesEn: 'ELEPHANT 3 · HUMAN 2 · ANT 5',
     hintJa: 'ゾウは人間に勝ち、人間はアリに勝ち、アリはゾウに勝つ。',
+    hintEn: 'The elephant beats the human, the human beats the ant, the ant beats the elephant.',
     hands: ['elephant', 'human', 'ant'],
     points: { elephant: 3, human: 2, ant: 5 },
     beats: { elephant: ['human'], human: ['ant'], ant: ['elephant'] },
     pro: true,
     countryCode: 'ID',
-    /* Build 1 の UI には出さない（v1.1 以降に温存。コードの土台だけ残す） */
-    archived: true,
+    /* Build 9: PRO の遊びとして UI に戻した（CPU練習とパーティーのみ） */
+    special: true,
   },
   well: {
     id: 'well',
     nameJa: '井戸つき',
     nameEn: 'WELL',
+    shortJa: '井戸つき',
+    shortEn: 'WELL',
     rulesJa: 'パーだけが井戸をふさぐ（4手）',
+    rulesEn: 'Only PAPER covers the WELL (4 hands)',
     hintJa: '井戸はグーとチョキに勝ち、パーだけが井戸に勝つ（4手）。',
+    hintEn: 'The well beats rock and scissors; only paper covers the well (4 hands).',
     hands: ['rock', 'scissors', 'paper', 'well'],
     points: { rock: 3, scissors: 2, paper: 5, well: 4 },
     beats: { rock: ['scissors'], scissors: ['paper'], paper: ['rock', 'well'], well: ['rock', 'scissors'] },
     pro: true,
     countryCode: 'FR',
-    archived: true,
+    special: true,
   },
 });
 
 /**
- * Build 1 で遊べるルールセット。クラシック一本に集中する。
- * 特殊ルール（ゾウ・人間・アリ / 井戸つき）はコードに残し、UI には出さない。
+ * ランキングが入るモードで遊べるルール（Build 1 から変えない＝クラシック一本）。
+ * ここを増やすとランキングの意味が変わるので、増やさない。
  */
 export const ACTIVE_RULESETS = Object.freeze(['standard']);
 
-/** v1.1 以降に温存しているルール（UI 非表示） */
+/** 世界の特別ルール（Build 9: PRO・ランキング対象外の遊びだけ） */
+export const SPECIAL_RULESETS = Object.freeze(['epa', 'well']);
+
+/**
+ * ランキングに入るモードが使うルール（クラシック固定）。
+ * 通信対戦・1対1のランキングは、いつでもこれ。
+ */
+export const RANKED_RULESET = 'standard';
+
+/**
+ * ランキング対象外の遊び（CPU練習・パーティー）で選べるルール（Build 9）。
+ */
+export const UNRANKED_RULESETS = Object.freeze([RANKED_RULESET, ...SPECIAL_RULESETS]);
+
+/** UI から外しているルール（Build 9 では無し。将来の温存用） */
 export const ARCHIVED_RULESETS = Object.freeze(
   Object.values(RULESETS).filter((set) => set.archived === true).map((set) => set.id),
 );
@@ -151,8 +176,33 @@ export function activeRulesets() {
   return ACTIVE_RULESETS.map((id) => RULESETS[id]);
 }
 
+/** 画面のどこかに選択肢として出ているルールか（特別ルールも含む） */
 export function isRulesetVisible(rulesetId) {
-  return ACTIVE_RULESETS.includes(rulesetId);
+  return UNRANKED_RULESETS.includes(rulesetId);
+}
+
+export function isSpecialRuleset(rulesetId) {
+  return SPECIAL_RULESETS.includes(rulesetId);
+}
+
+/** そのモードで選べるルールセット（通信対戦はクラシック固定） */
+export function rulesetsForMode(mode = 'practice') {
+  const ids = mode === 'online' ? [RANKED_RULESET] : UNRANKED_RULESETS;
+  return ids.map((id) => RULESETS[id]);
+}
+
+/** ルール名（画面用。日本語以外は英語の名前） */
+export function rulesetName(rulesetId, locale = 'ja') {
+  const set = getRuleset(rulesetId);
+  if (locale === 'ja') return set.nameJa;
+  return set.nameEn;
+}
+
+/** ルールの一言説明（日本語以外は英語） */
+export function rulesetHint(rulesetId, locale = 'ja') {
+  const set = getRuleset(rulesetId);
+  if (locale === 'ja') return set.hintJa ?? set.rulesJa;
+  return set.hintEn ?? set.rulesEn;
 }
 
 /**

@@ -120,7 +120,7 @@
       <section class="block">
         <div class="block__head">
           <h2 data-i18n="home.modes">対戦モード</h2>
-          <span class="block__note">✊3 / ✌️2 / ✋5 pt</span>
+          <span class="block__note" id="block-note">✊3 / ✌️2 / ✋5 pt</span>
         </div>
 
         <div class="mode-cards" id="mode-cards" role="group">
@@ -153,6 +153,11 @@
             <div class="seg" id="rounds-seg" role="group" aria-label="回戦数"></div>
           </div>
           <div class="level-row" id="level-row"></div>
+          <div class="rule-row">
+            <span class="panel-label" data-i18n="special.label">ルール</span>
+            <div class="rule-chips" id="rule-chips" role="group" data-i18n-aria="special.label"></div>
+          </div>
+          <p class="panel-note rule-hint" id="rule-hint" hidden></p>
         </div>
 
         <div class="mode-panel" id="panel-online" hidden>
@@ -482,6 +487,13 @@
             </div>
             <button class="icon-btn icon-btn--ghost" type="button" data-close aria-label="閉じる">✕</button>
           </header>
+          <div class="sheet-toolbar">
+            <button class="lang-pill" id="btn-country-lang" type="button" data-i18n-aria="country.langSwitch" aria-label="言語をかえる">
+              <span class="lang-pill__globe" aria-hidden="true">🌐</span>
+              <b id="country-lang-label">日本語</b>
+              <span class="lang-pill__caret" aria-hidden="true">▾</span>
+            </button>
+          </div>
           <p class="country-lock" id="country-lock-note" hidden>
             <img src="assets/icons/1f512.svg" alt="" />
             <span data-i18n="country.locked">国籍は初回登録のあと変更できません（ニックネームは設定から変えられます）。</span>
@@ -592,6 +604,10 @@
               <div><b data-i18n="pro.item4">相手の手の率（✊✌️✋%）</b><span>対戦相手の傾向を、数字で見られる。</span></div>
             </li>
             <li>
+              <img src="assets/icons/1f418.svg" alt="" />
+              <div><b data-i18n="pro.item6">世界の特別ルール（ゾウ・人間・アリ／井戸つき）</b><span>CPU練習とパーティーで遊べる、世界の変わりじゃんけん。ランキング対象外。</span></div>
+            </li>
+            <li>
               <img src="assets/icons/2728.svg" alt="" />
               <div><b data-i18n="pro.item5">ゴールド称号フレーム</b><span>プロフィールとランキングの行が金色に。</span></div>
             </li>
@@ -655,6 +671,11 @@
 
           <div class="scope-seg scope-seg--sheet" id="party-scope-seg" role="group" aria-label="パーティーの範囲"></div>
           <p class="panel-note" id="party-scope-note">国内パーティーは同じ国籍の4人まで（無料）。世界パーティーは PRO で、どこの国の人とも遊べます。結果はランキング対象外です。</p>
+
+          <div class="panel-row panel-row--split">
+            <span class="panel-label" data-i18n="special.partyLabel">ルール（ホストが選ぶ）</span>
+            <div class="rule-chips" id="party-rule-seg" role="group" data-i18n-aria="special.partyLabel"></div>
+          </div>
 
           <div class="party-code">
             <span data-i18n="online.code">合言葉</span>
@@ -737,7 +758,7 @@
               <span data-i18n="settings.privacy">プライバシーポリシー</span><span class="set-row__value">›</span>
             </button>
           </div>
-          <p class="sheet__note">JANKeN PoN 1.0.0 (Build 8) ・ T-maks Games ・ 自由入力のチャットはありません。</p>
+          <p class="sheet__note">JANKeN PoN 1.0.0 (Build 9) ・ T-maks Games ・ 自由入力のチャットはありません。</p>
         </section>
 
         <section class="sheet" id="sheet-language" data-sheet="language" hidden>

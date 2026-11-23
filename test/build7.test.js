@@ -143,21 +143,21 @@ test('PRO: 説明と core.js の blurbJa が同じ言い方（読み合う心理
  * 4. ビルド番号 7 と www 同期
  * ================================================================== */
 
-test('ビルド: iOS プロジェクトもアプリも Build 8', () => {
+test('ビルド: iOS プロジェクトもアプリも Build 9', () => {
   const pbx = read('ios/App/App.xcodeproj/project.pbxproj');
   const numbers = [...pbx.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map((m) => Number(m[1]));
   assert.equal(numbers.length, 2, 'Debug / Release の2箇所');
-  assert.deepEqual(numbers, [8, 8], '2箇所とも 8');
+  assert.deepEqual(numbers, [9, 9], '2箇所とも 9');
   assert.ok(pbx.includes('MARKETING_VERSION = 1.0.0;'), '表示バージョンは 1.0.0 のまま');
-  assert.ok(/version: '1\.0\.0',\s*build: 8,/.test(MAIN), 'アプリ側の build も 8');
-  assert.ok(HTML.includes('(Build 8)'), '設定の版表示も Build 8');
+  assert.ok(/version: '1\.0\.0',\s*build: 9,/.test(MAIN), 'アプリ側の build も 9');
+  assert.ok(HTML.includes('(Build 9)'), '設定の版表示も Build 9');
 });
 
-test('www: 配布用の写しにも Build 8 と2行の案内が入る', async () => {
+test('www: 配布用の写しにも Build 9 と2行の案内が入る', async () => {
   const { makeWww } = await import('../tools/make-www.mjs');
   await makeWww();
-  assert.ok(read('www/index.html').includes('(Build 8)'));
-  assert.ok(/version: '1\.0\.0',\s*build: 8,/.test(read('www/src/main.js')));
+  assert.ok(read('www/index.html').includes('(Build 9)'));
+  assert.ok(/version: '1\.0\.0',\s*build: 9,/.test(read('www/src/main.js')));
   assert.ok(read('www/index.html').includes('最強CPUとお互いに<br>手のクセを読み合う心理戦'), 'www の PRO 画面');
   assert.ok(read('www/styles.css').includes('white-space: pre-line'), 'www の CSS');
   assert.ok(read('www/src/i18n.js').includes('選択中（カウント終了で確定）\\nほかの手をタップで変更できます'), 'www の文言');
@@ -168,14 +168,14 @@ test('テスト: package.json の npm test が build7 までを順番どおり�
   const script = pkg.scripts.test;
   assert.ok(script.includes('--test-concurrency=1'), 'www/ を共有するので直列');
   const order = script.match(/test\/[a-z0-9]+\.test\.js/g);
-  /* 後から足したビルド（Build 8 以降）は末尾に増えるだけ */
+  /* 後から足したビルド（Build 9 以降）は末尾に増えるだけ */
   assert.deepEqual(order.slice(0, 9), [
     'test/core.test.js', 'test/online.test.js', 'test/build1.test.js',
     'test/build2.test.js', 'test/build3.test.js', 'test/build4.test.js',
     'test/build5.test.js', 'test/build6.test.js', 'test/build7.test.js',
   ]);
   assert.ok(readdirSync(resolve(ROOT, 'test')).includes('build7.test.js'));
-  assert.ok(pkg.description.includes('Build 8'), 'package.json の説明も Build 8');
+  assert.ok(pkg.description.includes('Build 9'), 'package.json の説明も Build 9');
 });
 
 test('確認スクリプト: 実ブラウザで2行と PRO 画面を見る tools/shots-b7.mjs がある', () => {

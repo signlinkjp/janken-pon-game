@@ -23,8 +23,11 @@ import {
   RULESETS,
   ACTIVE_RULESETS,
   ARCHIVED_RULESETS,
+  SPECIAL_RULESETS,
+  UNRANKED_RULESETS,
   activeRulesets,
   isRulesetVisible,
+  rulesetsForMode,
   LEVELS,
   ONLINE_TURN_MS,
   MATCH_TIMEOUT_MS,
@@ -58,7 +61,7 @@ import {
   frameFor,
   fallbackPrice,
 } from '../src/pro.js';
-import { LOCALES, KEYS, t, DICT, PROSE, applyI18n, detectLocale } from '../src/i18n.js';
+import { LOCALES, KEYS, t, DICT, PROSE, applyI18n, detectLocale, FALLBACK_LOCALE } from '../src/i18n.js';
 import {
   createProfileStore,
   createMemoryBackend,
@@ -78,20 +81,29 @@ const exists = (path) => existsSync(resolve(ROOT, path));
  * 1. クラシック一本
  * ------------------------------------------------------------------ */
 
-test('Build 1 で遊べるルールはクラシックだけ', () => {
-  assert.deepEqual([...ACTIVE_RULESETS], ['standard']);
+test('Build 9: ランキングはクラシック一本・ランキング外は特別ルールも選べる', () => {
+  assert.deepEqual([...ACTIVE_RULESETS], ['standard'], 'ランキングが入るルールは増やさない');
   assert.equal(activeRulesets().length, 1);
-  assert.equal(activeRulesets()[0].id, 'standard');
+  assert.deepEqual([...UNRANKED_RULESETS], ['standard', 'epa', 'well']);
   assert.equal(isRulesetVisible('standard'), true);
+  assert.equal(isRulesetVisible('epa'), true);
+  assert.equal(isRulesetVisible('well'), true);
 });
 
-test('特殊ルール（ゾウ・人間・アリ / 井戸つき）はコードに残し、UI には出さない', () => {
-  assert.ok(RULESETS.epa, 'コードの土台は残す');
-  assert.ok(RULESETS.well, 'コードの土台は残す');
-  assert.deepEqual([...ARCHIVED_RULESETS].sort(), ['epa', 'well']);
-  assert.equal(isRulesetVisible('epa'), false);
-  assert.equal(isRulesetVisible('well'), false);
-  for (const id of ARCHIVED_RULESETS) assert.equal(RULESETS[id].archived, true);
+test('世界の特別ルールは PRO の遊び（ランキングが入るモードでは使わない）', () => {
+  assert.ok(RULESETS.epa, 'ゾウ・人間・アリ');
+  assert.ok(RULESETS.well, '井戸つき');
+  assert.deepEqual([...SPECIAL_RULESETS], ['epa', 'well']);
+  assert.deepEqual([...ARCHIVED_RULESETS], [], 'UI から外しているルールは無い');
+  for (const id of SPECIAL_RULESETS) {
+    assert.equal(RULESETS[id].pro, true, `${id} は PRO`);
+    assert.equal(RULESETS[id].special, true, `${id} は特別ルール`);
+  }
+  assert.equal(RULESETS.standard.special, undefined, 'クラシックは特別ルールではない');
+  /* 通信対戦（ランキング）はクラシック固定 */
+  assert.deepEqual(rulesetsForMode('online').map((set) => set.id), ['standard']);
+  assert.deepEqual(rulesetsForMode('practice').map((set) => set.id), ['standard', 'epa', 'well']);
+  assert.deepEqual(rulesetsForMode('party').map((set) => set.id), ['standard', 'epa', 'well']);
 });
 
 test('クラシックのポイントは世界共通の 3 / 2 / 5、あいこは 0', () => {
@@ -100,11 +112,12 @@ test('クラシックのポイントは世界共通の 3 / 2 / 5、あいこは 
   assert.equal(pointsFor('paper', 'standard'), 5);
 });
 
-test('ホーム画面に特殊ルールの選択肢を出さない（HTML にモード切替が無い）', () => {
+test('ホーム画面のルール選択は小さなチップ（PRO の印つき・大きなグリッドは無い）', () => {
   const html = read('index.html');
-  assert.equal(html.includes('id="mode-grid"'), false, 'ルール選択のグリッドは撤去');
-  assert.equal(html.includes('ゾウ・人間・アリ'), false);
-  assert.equal(html.includes('井戸つき'), false);
+  assert.equal(html.includes('id="mode-grid"'), false, '大きなルール選択グリッドは作らない');
+  assert.ok(html.includes('id="rule-chips"'), 'CPU練習のパネルにチップの列');
+  assert.ok(html.includes('id="party-rule-seg"'), 'パーティーのシートにもチップの列');
+  assert.ok(html.includes('id="rule-hint"'), '特別ルールの一言説明');
   assert.ok(html.includes('CLASSIC'), 'クラシックの表記は残す');
 });
 
@@ -358,7 +371,13 @@ test('端末の言語タグから近いロケールを選ぶ', () => {
   assert.equal(detectLocale('zh-CN'), 'zh-Hans');
   assert.equal(detectLocale('pt-BR'), 'pt');
   assert.equal(detectLocale('id-ID'), 'id');
-  assert.equal(detectLocale(''), 'ja');
+  /* Build 9: 12言語のどれでもない端末は英語（日本語にしない） */
+  assert.equal(detectLocale(''), 'en');
+  assert.equal(detectLocale('th-TH'), 'en');
+  assert.equal(detectLocale('ar-EG'), 'en');
+  assert.equal(detectLocale('vi'), 'en');
+  assert.equal(detectLocale('en-GB'), 'en');
+  assert.equal(FALLBACK_LOCALE, 'en');
 });
 
 test('applyI18n は data-i18n / aria / placeholder を埋める（DOM 無しでは 0）', () => {
@@ -490,7 +509,8 @@ test('プロフィールに言語とパーティー記録が増えても、古�
   const profile = store.load();
   assert.equal(profile.nickname, 'トモ');
   assert.equal(profile.rounds, 3);
-  assert.equal(profile.locale, 'ja');
+  /* Build 9: 言語の記録が無い古いデータは「まだ選んでいない」= null（初回起動で端末の言語から決める） */
+  assert.equal(profile.locale, null);
   assert.deepEqual(profile.party, defaultParty());
 });
 

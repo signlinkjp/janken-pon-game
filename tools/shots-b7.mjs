@@ -392,7 +392,7 @@ async function main() {
     await shot.evaluate(() => window.JANKeNPoN.openSheet('settings'));
     await shot.waitForTimeout(300);
     const version = await shot.evaluate(() => document.querySelector('#sheet-settings .sheet__note')?.textContent ?? '');
-    check('スクショ: 設定の版表示が Build 8', version.includes('(Build 8)'), version);
+    check('スクショ: 設定の版表示が Build 9', version.includes('(Build 9)'), version);
     await shot.screenshot({ path: resolve(OUT, 'janken-b7-settings.png') });
 
     check('スクショ: JS エラーなし', storeErrors.length === 0, storeErrors);

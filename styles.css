@@ -1332,6 +1332,41 @@ textarea {
 .panel-note { font-size: calc(10px * var(--ts)); color: var(--ink-dim); line-height: 1.5; }
 .panel-note--warn { color: #9a5a00; font-weight: 700; }
 
+/* ---- Build 9: ルールのチップ（CPU練習・パーティー） ---- */
+.rule-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rule-chips { display: flex; gap: 5px; flex: 1 1 auto; min-width: 0; overflow-x: auto; padding: 1px; scrollbar-width: none; }
+.rule-chips::-webkit-scrollbar { display: none; }
+.rule-chip {
+  display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto;
+  padding: 6px 10px; border-radius: 999px; border: 1.5px solid var(--stroke-strong);
+  background: var(--card); font-size: calc(10px * var(--ts)); font-weight: 800; color: var(--ink-dim);
+  white-space: nowrap;
+}
+.rule-chip img { width: 14px; height: 14px; border-radius: 3px; display: block; }
+.rule-chip.is-active {
+  border-color: #e6c477; color: #6d4a00;
+  background: linear-gradient(180deg, #fffdf6, var(--gold-soft));
+}
+.rule-chip.is-locked { opacity: .62; }
+.rule-chip em {
+  font-style: normal; font-family: var(--font-en); font-size: calc(7px * var(--ts)); font-weight: 900;
+  letter-spacing: .04em; color: #7a4a00; background: #ffe6a6; border-radius: 999px; padding: 1px 4px;
+}
+.rule-hint { color: #7a5a1a; }
+
+/* ---- Build 9: 国をえらぶの言語ピル（🌐 日本語 ▾） ---- */
+.sheet-toolbar { display: flex; justify-content: flex-end; margin: -6px 0 10px; }
+.lang-pill {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px 6px 9px;
+  border-radius: 999px; border: 1.5px solid var(--stroke-strong); background: var(--card);
+  font-size: calc(10.5px * var(--ts)); font-weight: 800; color: var(--ink-dim);
+  box-shadow: var(--shadow-sm);
+}
+.lang-pill__globe { font-size: calc(12px * var(--ts)); line-height: 1; }
+.lang-pill b { font-weight: 800; color: var(--ink); }
+.lang-pill__caret { font-size: calc(8px * var(--ts)); color: var(--ink-faint); }
+.lang-pill:active { transform: scale(.97); }
+
 /* ---- 回戦・範囲のセグメント ---- */
 .seg { display: flex; gap: 4px; }
 .seg button {

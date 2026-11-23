@@ -106,7 +106,8 @@ export function defaultProfile(at = Date.now()) {
     pro: false,
     levelId: 'normal',
     rulesetId: 'standard',
-    locale: 'ja',
+    /* null = まだ選んでいない。初回起動で端末の言語から決める（12言語以外は英語・Build 9） */
+    locale: null,
     sound: true,
     stampsMuted: false,
     textScale: 'standard',
