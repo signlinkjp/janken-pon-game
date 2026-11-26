@@ -1,9 +1,9 @@
 {
   "name": "janken-pon",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
-  "description": "JANKeN PoN — 世界の掛け声で5/3回戦じゃんけん（Capacitor iOS / Build 9）",
+  "description": "JANKeN PoN — 世界の掛け声で5/3回戦じゃんけん（Capacitor iOS / Build 10）",
   "license": "UNLICENSED",
   "scripts": {
     "test": "node --test --test-concurrency=1 test/core.test.js test/online.test.js test/build1.test.js test/build2.test.js test/build3.test.js test/build4.test.js test/build5.test.js test/build6.test.js test/build7.test.js test/build8.test.js test/build9.test.js",

@@ -449,7 +449,7 @@ test('iOS プロジェクトの契約（名前・Bundle ID・版番号）', () =
   assert.equal(buildNumbers.length, 2, 'Debug/Release の2箇所にビルド番号がある');
   assert.ok(buildNumbers.every((n) => Number.isInteger(n) && n >= 1));
   assert.equal(new Set(buildNumbers).size, 1, '2箇所のビルド番号は同じ');
-  assert.ok(pbx.includes('MARKETING_VERSION = 1.0.0;'));
+  assert.ok(pbx.includes('MARKETING_VERSION = 1.0.1;'));
   assert.ok(exists('ios/App/App.xcodeproj/xcshareddata/xcschemes/App.xcscheme'));
   assert.ok(exists('ios/App/App/AppDelegate.swift'));
 });

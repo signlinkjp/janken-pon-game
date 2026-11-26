@@ -3402,8 +3402,8 @@ function boot() {
   }
 
   window.JANKeNPoN = {
-    version: '1.0.0',
-    build: 9,
+    version: '1.0.1',
+    build: 10,
     /* Build 8: オープニング（自動テストは skipOpening() で飛ばせる） */
     get opening() {
       const el = openingElement();

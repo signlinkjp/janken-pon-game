@@ -482,10 +482,10 @@ test('ビルド: アプリも iOS プロジェクトも Build 9', () => {
   const pbx = read('ios/App/App.xcodeproj/project.pbxproj');
   const numbers = [...pbx.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map((m) => Number(m[1]));
   assert.equal(numbers.length, 2, 'Debug / Release の2箇所');
-  assert.deepEqual(numbers, [9, 9]);
-  assert.ok(pbx.includes('MARKETING_VERSION = 1.0.0;'));
-  assert.ok(/version: '1\.0\.0',\s*build: 9,/.test(read('src/main.js')));
-  assert.ok(read('index.html').includes('(Build 9)'));
+  assert.deepEqual(numbers, [10, 10]);
+  assert.ok(pbx.includes('MARKETING_VERSION = 1.0.1;'));
+  assert.ok(/version: '1\.0\.1',\s*build: 10,/.test(read('src/main.js')));
+  assert.ok(read('index.html').includes('(Build 10)'));
 });
 
 test('ワークフロー: docs/ios-testflight-build3.yml は番号を自動で読み、Build 3 の検査を持つ', () => {

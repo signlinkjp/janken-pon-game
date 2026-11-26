@@ -528,12 +528,12 @@ test('ビルド: iOS プロジェクトもアプリも同じ Build 番号（Buil
   const pbx = read('ios/App/App.xcodeproj/project.pbxproj');
   const numbers = [...pbx.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map((m) => Number(m[1]));
   assert.equal(numbers.length, 2, 'Debug / Release の2箇所');
-  assert.deepEqual(numbers, [9, 9], 'Build 9');
-  assert.ok(pbx.includes('MARKETING_VERSION = 1.0.0;'));
+  assert.deepEqual(numbers, [10, 10], 'Build 9');
+  assert.ok(pbx.includes('MARKETING_VERSION = 1.0.1;'));
   const main = read('src/main.js');
-  assert.ok(/version: '1\.0\.0',\s*build: 9,/.test(main), 'アプリ側の build も 9');
+  assert.ok(/version: '1\.0\.1',\s*build: 10,/.test(main), 'アプリ側の build も 9');
   const html = read('index.html');
-  assert.ok(html.includes('(Build 9)'), '設定の版表示も Build 9');
+  assert.ok(html.includes('(Build 10)'), '設定の版表示も Build 9');
 });
 
 test('ワークフロー: docs/ios-testflight-build2.yml がビルド番号を自動で読む', () => {

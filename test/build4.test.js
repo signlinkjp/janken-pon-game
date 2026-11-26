@@ -119,10 +119,10 @@ test('ビルド: iOS プロジェクトもアプリも Build 9', () => {
   const pbx = read('ios/App/App.xcodeproj/project.pbxproj');
   const numbers = [...pbx.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map((m) => Number(m[1]));
   assert.equal(numbers.length, 2, 'Debug / Release の2箇所');
-  assert.deepEqual(numbers, [9, 9], '2箇所とも 9');
-  assert.ok(pbx.includes('MARKETING_VERSION = 1.0.0;'), '表示バージョンは 1.0.0 のまま');
-  assert.ok(/version: '1\.0\.0',\s*build: 9,/.test(MAIN), 'アプリ側の build も 9');
-  assert.ok(read('index.html').includes('(Build 9)'), '設定の版表示も Build 9');
+  assert.deepEqual(numbers, [10, 10], '2箇所とも 9');
+  assert.ok(pbx.includes('MARKETING_VERSION = 1.0.1;'), '表示バージョンは 1.0.0 のまま');
+  assert.ok(/version: '1\.0\.1',\s*build: 10,/.test(MAIN), 'アプリ側の build も 9');
+  assert.ok(read('index.html').includes('(Build 10)'), '設定の版表示も Build 9');
 });
 
 test('www: 配布用の写しも Build 9（node tools/make-www.mjs で同期）', async () => {
@@ -131,8 +131,8 @@ test('www: 配布用の写しも Build 9（node tools/make-www.mjs で同期）'
   const { makeWww } = await import('../tools/make-www.mjs');
   await makeWww();
   assert.ok(exists('www/index.html'), 'www/ がある');
-  assert.ok(read('www/index.html').includes('(Build 9)'), 'www の版表示も Build 9');
-  assert.ok(/version: '1\.0\.0',\s*build: 9,/.test(read('www/src/main.js')), 'www の main.js も 9');
+  assert.ok(read('www/index.html').includes('(Build 10)'), 'www の版表示も Build 9');
+  assert.ok(/version: '1\.0\.1',\s*build: 10,/.test(read('www/src/main.js')), 'www の main.js も 9');
   assert.ok(
     read('www/styles.css').includes('.round-row.is-lose { border-color: rgba(221, 59, 59, 0.28);'),
     'www の CSS も赤枠',
